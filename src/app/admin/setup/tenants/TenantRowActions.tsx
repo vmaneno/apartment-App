@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, ArrowRightLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 type Tenant = {
@@ -12,13 +12,20 @@ type Tenant = {
   phone: string | null
 }
 
+type UnitOption = { id: string; label: string }
+
 const cls = 'w-full px-3 py-2 rounded-lg text-sm border outline-none'
 const sx = { backgroundColor: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text-primary)' }
 
-export function TenantRowActions({ tenant }: { tenant: Tenant }) {
+export function TenantRowActions({ tenant, activeUnitId, units }: {
+  tenant: Tenant
+  activeUnitId: string | null
+  units: UnitOption[]
+}) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [moving, setMoving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,6 +55,25 @@ export function TenantRowActions({ tenant }: { tenant: Tenant }) {
     setLoading(false)
   }
 
+  async function handleMove(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const data = Object.fromEntries(new FormData(e.currentTarget))
+    const res = await fetch(`/api/setup/tenants/${tenant.id}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) { setError(json.error ?? 'Failed to move tenant'); setLoading(false); return }
+    setMoving(false)
+    router.refresh()
+    setLoading(false)
+  }
+
+  const targetUnits = units.filter(u => u.id !== activeUnitId)
+
   return (
     <>
       <div className="flex items-center justify-center gap-1">
@@ -56,6 +82,13 @@ export function TenantRowActions({ tenant }: { tenant: Tenant }) {
           style={{ backgroundColor: 'rgba(212,160,23,0.15)', color: '#d4a017', border: '1px solid #d4a017' }}>
           <Pencil size={14} />
         </button>
+        {activeUnitId && (
+          <button onClick={() => setMoving(true)} title="Move to a different unit"
+            className="p-1.5 rounded transition-colors"
+            style={{ backgroundColor: 'rgba(74,124,212,0.15)', color: '#4a7cd4', border: '1px solid #4a7cd4' }}>
+            <ArrowRightLeft size={14} />
+          </button>
+        )}
         <button onClick={() => setConfirming(true)} title="Delete"
           className="p-1.5 rounded transition-colors"
           style={{ backgroundColor: '#3b0a0a', color: '#ef4444', border: '1px solid #ef4444' }}>
@@ -84,6 +117,43 @@ export function TenantRowActions({ tenant }: { tenant: Tenant }) {
               <div className="flex gap-3 justify-end">
                 <Button variant="ghost" type="button" onClick={() => { setEditing(false); setError('') }}>Cancel</Button>
                 <Button type="submit" loading={loading}>Save Changes</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {moving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div className="rounded-xl p-6 w-full max-w-md shadow-xl overflow-y-auto max-h-[90vh]" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <h2 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Move {tenant.name}</h2>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+              Ends the current active lease and starts a new one on the unit below. This moves everyone on the current lease, not just {tenant.name} — if only one of several co-tenants is moving, do this manually instead (end the old lease, then create a new one for just that person).
+            </p>
+            <form onSubmit={handleMove} className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Move to Unit *</label>
+                <select name="targetUnitId" required className={cls} style={sx}>
+                  <option value="">— Select unit —</option>
+                  {targetUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>New Lease Start Date *</label>
+                <input name="startDate" type="date" required className={cls} style={sx} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>New Rent Amount *</label>
+                <input name="rentAmount" type="number" step="0.01" min="0" required className={cls} style={sx} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>New Deposit Amount</label>
+                <input name="depositAmount" type="number" step="0.01" min="0" className={cls} style={sx} />
+              </div>
+              {error && <p className="text-xs text-red-400">{error}</p>}
+              <div className="flex gap-3 justify-end">
+                <Button variant="ghost" type="button" onClick={() => { setMoving(false); setError('') }}>Cancel</Button>
+                <Button type="submit" loading={loading}>Move</Button>
               </div>
             </form>
           </div>

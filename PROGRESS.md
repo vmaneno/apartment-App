@@ -44,8 +44,15 @@ session can pick up without re-reading the whole brief or plan.
 - [x] Lease creation (Unit detail page: lease history table + Add Lease
       form with a tenant multi-select for co-tenants via `LeaseTenant`).
       Guards against two `Active` leases on the same unit at once (409).
-      No renewal/end-lease UI yet — a new Lease row is the only way to
-      change status today.
+- [x] Edit Lease (status/dates/rent/deposit) — this is also how a lease
+      gets ended (set Status to Ended). Tenants on a lease can't be
+      edited in place; that's what Move Tenant is for.
+- [x] Move Tenant — Tenants page row action: ends the tenant's current
+      Active lease and creates a new one on a different unit in one
+      transaction, carrying over every tenant on the old lease (moves
+      the whole household on that lease, not just the one clicked).
+      No partial-household transfer UI (do that manually: end the old
+      lease, create a new one for just the tenant who's moving).
 - [ ] Rent roll view
 - [ ] Recurring charges (LeaseCharge) posting
 - [ ] Payment recording (Payment + PaymentApplication)
