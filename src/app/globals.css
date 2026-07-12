@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Placeholder palette — slate/emerald, deliberately distinct from USHoa-App's navy/gold so the
+   two products don't look like the same app. Swap out once real branding is decided. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  --bg: #f4f6f5;
+  --bg-card: #ffffff;
+  --text-primary: #0f1f19;
+  --text-secondary: #204035;
+  --text-muted: #64748b;
+  --border: #d7ddda;
+  --sidebar-bg: #0f2b22;
+  --sidebar-text: #eafaf2;
+  --sidebar-hover: #17402f;
+  --accent: #10a06a;
+  --accent-hover: #0c8656;
+  --accent-fg: #06140f;
+}
+
+.dark {
+  --bg: #0b1512;
+  --bg-card: #101d18;
+  --text-primary: #eafaf2;
+  --text-secondary: #a9c9bb;
+  --text-muted: #7aa392;
+  --border: #1c3329;
+  --sidebar-bg: #060f0b;
+  --sidebar-text: #eafaf2;
+  --sidebar-hover: #10231b;
+  --accent: #34d399;
+  --accent-hover: #10a06a;
+  --accent-fg: #06140f;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
