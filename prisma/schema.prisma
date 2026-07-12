@@ -17,6 +17,7 @@ model Organization {
   users           User[]
   owners          Owner[]
   properties      Property[]
+  tenants         Tenant[]
   vendors         Vendor[]
   chartOfAccounts ChartOfAccount[]
 }
@@ -112,11 +113,13 @@ model Unit {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String?
+  phone          String?
+  createdAt      DateTime     @default(now())
 
   leaseTenants LeaseTenant[]
 }
