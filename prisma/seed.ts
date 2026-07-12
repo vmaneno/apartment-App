@@ -32,7 +32,21 @@ async function main() {
     },
   })
 
-  console.log('Seeded organization + admin user (userName: admin / password: Admin@1234)')
+  const chartOfAccounts = [
+    { glNumber: '1000', glName: 'Operating Cash', glType: 'Asset' },
+    { glNumber: '1500', glName: 'Rent Receivable', glType: 'Asset' },
+    { glNumber: '4000', glName: 'Rental Income', glType: 'Income' },
+    { glNumber: '4100', glName: 'Other Income', glType: 'Income' },
+  ]
+  for (const gl of chartOfAccounts) {
+    await prisma.chartOfAccount.upsert({
+      where: { organizationId_glNumber: { organizationId: org.id, glNumber: gl.glNumber } },
+      update: {},
+      create: { organizationId: org.id, ...gl },
+    })
+  }
+
+  console.log('Seeded organization + admin user (userName: admin / password: Admin@1234) + starter chart of accounts')
 }
 
 main()
