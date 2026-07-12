@@ -53,7 +53,12 @@ session can pick up without re-reading the whole brief or plan.
       the whole household on that lease, not just the one clicked).
       No partial-household transfer UI (do that manually: end the old
       lease, create a new one for just the tenant who's moving).
-- [ ] Rent roll view
+- [x] Rent roll view — `/admin/reports/rent-roll`: every active unit with
+      occupancy status, tenant(s), actual vs. market rent, lease dates;
+      summary cards (units/occupied/vacant/occupancy %/total rent);
+      Property + Occupied/Vacant filters. First page under a new
+      `admin/reports/` area — later reports (Income Statement, AR aging,
+      etc.) should land there too.
 - [ ] Recurring charges (LeaseCharge) posting
 - [ ] Payment recording (Payment + PaymentApplication)
 - [ ] Chart of Accounts setup UI
