@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
 import { OwnerForm } from './OwnerForm'
+import { OwnerRowActions } from './OwnerRowActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,9 @@ export default async function OwnersPage() {
             if (rows.length === 0) return '—'
             return rows.map(po => `${po.property.name} (${po.ownershipPercent}%)`).join(', ')
           } },
+          { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
+            <OwnerRowActions owner={r as unknown as Parameters<typeof OwnerRowActions>[0]['owner']} />
+          ) },
         ]}
         data={owners as unknown as Record<string, unknown>[]}
         emptyMessage="No owners yet — click Add Owner to create one."
