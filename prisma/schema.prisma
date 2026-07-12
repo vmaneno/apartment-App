@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// The tenant of the software — a management company, or a self-managed owner-operator.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users           User[]
+  owners          Owner[]
+  properties      Property[]
+  vendors         Vendor[]
+  chartOfAccounts ChartOfAccount[]
+}
+
+// Org staff login (admin/staff) — not a tenant or owner-portal login.
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String       @unique
+  userName       String       @unique
+  password       String
+  role           String       @default("staff") // 'admin' | 'staff'
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+}
+
+// A party who holds equity in one or more Properties. Modeled explicitly even when it's the
+// same legal entity as the Organization (self-managed), so reporting never has to special-case it.
+model Owner {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  type           String       @default("Individual") // 'Individual' | 'LLC'
+  email          String?
+  phone          String?
+  active         Boolean      @default(true)
+
+  propertyOwners PropertyOwner[]
+}
+
+model Property {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  state          String
+  zip            String
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  propertyOwners      PropertyOwner[]
+  managementAgreement ManagementAgreement?
+  units               Unit[]
+  workOrders          WorkOrder[]
+  bankAccounts        BankAccount[]
+  transactionLines    TransactionLine[]
+}
+
+// Join: Property <-> Owner, with ownership % — supports co-owned properties.
+model PropertyOwner {
+  id               String   @id @default(cuid())
+  propertyId       String
+  property         Property @relation(fields: [propertyId], references: [id])
+  ownerId          String
+  owner            Owner    @relation(fields: [ownerId], references: [id])
+  ownershipPercent Float    @default(100)
+
+  @@unique([propertyId, ownerId])
+}
+
+// Fee terms for a managed (not self-managed) property. Absent or feePercent = 0 for self-managed.
+model ManagementAgreement {
+  id               String    @id @default(cuid())
+  propertyId       String    @unique
+  property         Property  @relation(fields: [propertyId], references: [id])
+  feePercent       Float     @default(0)
+  leasingFeeAmount Float?
+  effectiveDate    DateTime  @default(now())
+  endDate          DateTime?
+}
+
+model Unit {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  unitNumber String
+  beds       Int      @default(0)
+  baths      Float    @default(0)
+  sqft       Int?
+  marketRent Float?
+  active     Boolean  @default(true)
+
+  leases     Lease[]
+  workOrders WorkOrder[]
+
+  @@unique([propertyId, unitNumber])
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  leaseTenants LeaseTenant[]
+}
+
+model Lease {
+  id            String    @id @default(cuid())
+  unitId        String
+  unit          Unit      @relation(fields: [unitId], references: [id])
+  status        String    @default("Active") // 'Active' | 'Ended' | 'Pending'
+  startDate     DateTime
+  endDate       DateTime?
+  rentAmount    Float
+  depositAmount Float     @default(0)
+  createdAt     DateTime  @default(now())
+
+  leaseTenants LeaseTenant[]
+  leaseCharges LeaseCharge[]
+  payments     Payment[]
+}
+
+// Join: Lease <-> Tenant, for co-tenants.
+model LeaseTenant {
+  id       String @id @default(cuid())
+  leaseId  String
+  lease    Lease  @relation(fields: [leaseId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([leaseId, tenantId])
+}
+
+model LeaseCharge {
+  id         String   @id @default(cuid())
+  leaseId    String
+  lease      Lease    @relation(fields: [leaseId], references: [id])
+  chargeType String   // 'Rent' | 'Pet Rent' | 'Parking' | 'Late Fee' | ...
+  amount     Float
+  recurring  Boolean  @default(false)
+  date       DateTime @default(now())
+
+  paymentApplications PaymentApplication[] @relation("ChargeTx")
+}
+
+model Payment {
+  id      String   @id @default(cuid())
+  leaseId String
+  lease   Lease    @relation(fields: [leaseId], references: [id])
+  amount  Float
+  date    DateTime @default(now())
+  method  String   // 'ACH' | 'Card' | 'Check' | 'Cash'
+
+  paymentApplications PaymentApplication[] @relation("PaymentTx")
+}
+
+// Links a Payment to the LeaseCharge(s) it pays off — same shape as USHoa-App's PaymentApplication.
+model PaymentApplication {
+  id            String      @id @default(cuid())
+  paymentId     String
+  payment       Payment     @relation("PaymentTx", fields: [paymentId], references: [id])
+  chargeId      String
+  charge        LeaseCharge @relation("ChargeTx", fields: [chargeId], references: [id])
+  appliedAmount Float
+}
+
+model Vendor {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  trade          String?
+  email          String?
+  phone          String?
+  coiExpiresAt   DateTime?
+  w9OnFile       Boolean      @default(false)
+  active         Boolean      @default(true)
+
+  workOrders WorkOrder[]
+}
+
+model WorkOrder {
+  id               String    @id @default(cuid())
+  propertyId       String
+  property         Property  @relation(fields: [propertyId], references: [id])
+  unitId           String?
+  unit             Unit?     @relation(fields: [unitId], references: [id])
+  description      String
+  priority         String    @default("Routine") // 'Emergency' | 'Routine'
+  status           String    @default("Open") // 'Open' | 'Assigned' | 'InProgress' | 'Completed'
+  assignedVendorId String?
+  assignedVendor   Vendor?   @relation(fields: [assignedVendorId], references: [id])
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+}
+
+model BankAccount {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  name       String
+  type       String   @default("Operating") // 'Operating' | 'SecurityDepositTrust' | 'Reserve'
+  glNumber   String
+  active     Boolean  @default(true)
+}
+
+// Chart of Accounts, scoped per Organization (mirrors USHoa-App's per-HOA COA).
+model ChartOfAccount {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  glNumber       String
+  glName         String
+  glType         String       // 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense'
+  active         Boolean      @default(true)
+
+  lines TransactionLine[]
+
+  @@unique([organizationId, glNumber])
+}
+
+// Double-entry ledger, same shape as USHoa-App's accounting.ts. organizationId is a plain
+// string (not an FK) to match that app's lightweight tenant-scoping convention on ledger tables.
+model Transaction {
+  id              String   @id @default(cuid())
+  organizationId  String
+  date            DateTime @default(now())
+  transactionType String
+  description     String
+  memo            String?
+  createdAt       DateTime @default(now())
+
+  lines TransactionLine[]
+}
+
+// propertyId tags each line the same way USHoa-App tags lines with `fund` — a per-property
+// NOI report is just a filter on this field, not a separate ledger.
+model TransactionLine {
+  id            String         @id @default(cuid())
+  transactionId String
+  transaction   Transaction    @relation(fields: [transactionId], references: [id])
+  glAccountId   String
+  glAccount     ChartOfAccount @relation(fields: [glAccountId], references: [id])
+  propertyId    String?
+  property      Property?      @relation(fields: [propertyId], references: [id])
+  debit         Float          @default(0)
+  credit        Float          @default(0)
+  description   String?
+}
