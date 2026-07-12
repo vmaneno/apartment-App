@@ -30,7 +30,13 @@ session can pick up without re-reading the whole brief or plan.
 - [x] Setup → Properties: create/list Property, auto-creates a default
       "Self (default)" Owner + 100% PropertyOwner row per the brief's
       "model Owner/PropertyOwner from day one" guidance
-- [x] Property detail page: create/list Units under a Property
+- [x] Property detail page: create/edit/delete Units under a Property
+- [x] Setup → Units (`/admin/setup/units`) — portfolio-wide unit list
+      (property, beds/baths, sqft, market rent, occupied/vacant status,
+      edit/delete), with an Add Unit form that includes a Property
+      picker. Added because Units previously had no top-level nav entry
+      and were only reachable by drilling into a specific Property first.
+      Dashboard's Units count card now links here too.
 - [x] Owner setup UI (Setup → Owners: create/list/edit/delete; Property
       detail page shows current PropertyOwner rows and a form to
       assign/reassign an owner + ownership %, upserting on

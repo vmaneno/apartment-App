@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -16,9 +17,9 @@ export default async function DashboardPage() {
   ])
 
   const cards = [
-    { label: 'Properties', value: propertyCount },
-    { label: 'Units', value: unitCount },
-    { label: 'Owners', value: ownerCount },
+    { label: 'Properties', value: propertyCount, href: '/admin/setup/properties' },
+    { label: 'Units', value: unitCount, href: '/admin/setup/units' },
+    { label: 'Owners', value: ownerCount, href: '/admin/setup/owners' },
   ]
 
   return (
@@ -26,10 +27,10 @@ export default async function DashboardPage() {
       <PageHeader title="Dashboard" subtitle={`Welcome, ${session.name}`} />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {cards.map(c => (
-          <div key={c.label} className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <Link key={c.label} href={c.href} className="rounded-xl p-5 block hover:opacity-90 transition-opacity" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{c.label}</p>
             <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{c.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
