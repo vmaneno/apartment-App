@@ -119,6 +119,7 @@ model Tenant {
   name           String
   email          String?
   phone          String?
+  active         Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
   leaseTenants LeaseTenant[]
