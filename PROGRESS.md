@@ -31,9 +31,16 @@ session can pick up without re-reading the whole brief or plan.
       "Self (default)" Owner + 100% PropertyOwner row per the brief's
       "model Owner/PropertyOwner from day one" guidance
 - [x] Property detail page: create/list Units under a Property
-- [ ] Owner setup UI (real owner creation/editing — currently only the
-      auto-created default owner exists; PropertyOwner % editing UI)
-- [ ] Tenant setup + Lease creation (Lease, LeaseTenant)
+- [x] Owner setup UI (Setup → Owners: create/list; Property detail page
+      shows current PropertyOwner rows and a form to assign/reassign an
+      owner + ownership %, upserting on `[propertyId, ownerId]`)
+- [x] Tenant setup UI (Setup → Tenants: create/list, showing each
+      tenant's active lease if any)
+- [x] Lease creation (Unit detail page: lease history table + Add Lease
+      form with a tenant multi-select for co-tenants via `LeaseTenant`).
+      Guards against two `Active` leases on the same unit at once (409).
+      No renewal/end-lease UI yet — a new Lease row is the only way to
+      change status today.
 - [ ] Rent roll view
 - [ ] Recurring charges (LeaseCharge) posting
 - [ ] Payment recording (Payment + PaymentApplication)
@@ -67,6 +74,8 @@ script) or it will silently read/write `public.*` instead of
 
 ## Test data currently in the DB
 
-One sample Property ("Maple Ridge Apartments") + one Unit (101), created
-during end-to-end verification of the login → property → unit flow.
-Safe to delete once real data entry starts.
+Sample Property ("Maple Ridge Apartments") + Unit 101, an Owner
+("Riverside Capital LLC", assigned 60% on that property), a Tenant
+("Jane Doe"), and an Active Lease on Unit 101 for that tenant — all
+created during end-to-end verification. Safe to delete once real data
+entry starts.
