@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { LeaseForm } from './LeaseForm'
+import { LeaseRowActions } from './LeaseRowActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,9 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ id:
           { key: 'endDate', label: 'End', render: (r: Record<string, unknown>) => r.endDate ? formatDate(r.endDate as Date) : '—' },
           { key: 'rentAmount', label: 'Rent', align: 'right' as const, render: (r: Record<string, unknown>) => formatCurrency(r.rentAmount as number) },
           { key: 'depositAmount', label: 'Deposit', align: 'right' as const, render: (r: Record<string, unknown>) => formatCurrency(r.depositAmount as number) },
+          { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
+            <LeaseRowActions lease={r as unknown as Parameters<typeof LeaseRowActions>[0]['lease']} />
+          ) },
         ]}
         data={unit.leases as unknown as Record<string, unknown>[]}
         emptyMessage="No leases yet — click Add Lease to create one."
