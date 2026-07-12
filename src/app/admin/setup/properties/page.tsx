@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
 import { PropertyForm } from './PropertyForm'
+import { PropertyRowActions } from './PropertyRowActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +36,9 @@ export default async function PropertiesPage() {
             const po = (r.propertyOwners as { owner: { name: string }; ownershipPercent: number }[])[0]
             return po ? `${po.owner.name} (${po.ownershipPercent}%)` : '—'
           } },
+          { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
+            <PropertyRowActions property={r as unknown as Parameters<typeof PropertyRowActions>[0]['property']} />
+          ) },
         ]}
         data={properties as unknown as Record<string, unknown>[]}
         emptyMessage="No properties yet — click Add Property to create one."
