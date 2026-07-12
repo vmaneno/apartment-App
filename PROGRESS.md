@@ -31,11 +31,16 @@ session can pick up without re-reading the whole brief or plan.
       "Self (default)" Owner + 100% PropertyOwner row per the brief's
       "model Owner/PropertyOwner from day one" guidance
 - [x] Property detail page: create/list Units under a Property
-- [x] Owner setup UI (Setup → Owners: create/list; Property detail page
-      shows current PropertyOwner rows and a form to assign/reassign an
-      owner + ownership %, upserting on `[propertyId, ownerId]`)
-- [x] Tenant setup UI (Setup → Tenants: create/list, showing each
-      tenant's active lease if any)
+- [x] Owner setup UI (Setup → Owners: create/list/edit/delete; Property
+      detail page shows current PropertyOwner rows and a form to
+      assign/reassign an owner + ownership %, upserting on
+      `[propertyId, ownerId]`)
+- [x] Tenant setup UI (Setup → Tenants: create/list/edit/delete, Name/Email
+      filters, showing each tenant's active lease if any)
+- [x] Property edit/delete
+- [x] Delete = deactivate everywhere (`active: false`), not a hard
+      delete — Property/Owner/Tenant can all have related records
+      (Units, PropertyOwner rows, lease history) that must survive
 - [x] Lease creation (Unit detail page: lease history table + Add Lease
       form with a tenant multi-select for co-tenants via `LeaseTenant`).
       Guards against two `Active` leases on the same unit at once (409).
