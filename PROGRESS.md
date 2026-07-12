@@ -14,7 +14,7 @@ session can pick up without re-reading the whole brief or plan.
 - [x] Fresh, distinct `JWT_SECRET` (not shared with the HOA app)
 - [ ] Dedicated Supabase project (deferred — see plan notes on how to
       split off later via `pg_dump --schema=apartment_pm`)
-- [ ] GitHub repo created / pushed
+- [x] GitHub repo created / pushed — https://github.com/vmaneno/apartment-App
 - [ ] Vercel deployment
 
 ## Phase 1 — MVP (design brief §6)
