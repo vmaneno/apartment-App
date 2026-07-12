@@ -50,7 +50,12 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ id:
         columns={[
           { key: 'tenants', label: 'Tenant(s)', render: (r: Record<string, unknown>) => {
             const lts = r.leaseTenants as { tenant: { name: string } }[]
-            return lts.map(lt => lt.tenant.name).join(', ')
+            const names = lts.map(lt => lt.tenant.name).join(', ')
+            return (
+              <Link href={`/admin/setup/properties/${unit.propertyId}/units/${unit.id}/leases/${r.id}`} className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
+                {names}
+              </Link>
+            )
           } },
           { key: 'status', label: 'Status', render: (r: Record<string, unknown>) => {
             const status = r.status as string

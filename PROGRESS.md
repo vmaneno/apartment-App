@@ -59,13 +59,34 @@ session can pick up without re-reading the whole brief or plan.
       Property + Occupied/Vacant filters. First page under a new
       `admin/reports/` area — later reports (Income Statement, AR aging,
       etc.) should land there too.
-- [ ] Recurring charges (LeaseCharge) posting
-- [ ] Payment recording (Payment + PaymentApplication)
-- [ ] Chart of Accounts setup UI
-- [ ] Accounting engine functions (adapt `postAssessment`-style
-      double-entry helpers from USHoa-App's `src/lib/accounting.ts` for
-      Transaction/TransactionLine — propertyId-tagged instead of
-      fund-tagged)
+- [x] Recurring charges (LeaseCharge) posting — `/admin/ar/post-rent`:
+      bulk-select Active leases, post Rent (each lease's own rentAmount)
+      or another charge type (Pet Rent/Parking/Late Fee/Other, one shared
+      amount across all selected). Also a single-lease "Post Charge" form
+      on the Lease detail page for one-off/ad-hoc charges.
+- [x] Payment recording (Payment + PaymentApplication) — "Record Payment"
+      on the Lease detail page, FIFO-allocated across outstanding charges.
+      Overpayment (more than the lease's outstanding balance) is rejected
+      with a clear error — no prepaid-credit account exists yet.
+- [x] Accounting engine (`src/lib/accounting.ts`): `postLeaseCharge` and
+      `recordPayment`, full double-entry to `Transaction`/`TransactionLine`,
+      `propertyId`-tagged (same technique as USHoa-App's `fund` tagging).
+      Verified end-to-end: DR/CR balance to zero, correct `propertyId`,
+      partial payment + overpayment rejection both behave correctly.
+- [x] Chart of Accounts — **seeded only, no setup UI yet**. 4 starter
+      accounts per organization (1000 Operating Cash, 1500 Rent
+      Receivable, 4000 Rental Income, 4100 Other Income) in
+      `prisma/seed.ts`. Rent charges credit 4000; every other charge type
+      credits 4100 — no per-type GL mapping UI. A real COA management
+      page (add/edit accounts, choose GL per charge type) is still open.
+- [ ] Bank account selection on payments — currently always posts to the
+      single seeded 1000 Operating Cash account; needs Bank Accounts setup
+      (below) before a payment can target a specific bank.
+- [ ] Period-close protection — no `closedThrough`-style field exists on
+      Organization/Property yet (HOA app's `assertPeriodOpen` has no
+      equivalent here).
+- [ ] Rent Roll "Balance" column — natural follow-up now that charges/
+      payments exist; not added this pass.
 - [ ] Income Statement & Balance Sheet, per property
 - [ ] Bank accounts setup + basic reconciliation
 - [ ] Work order tracking UI (schema exists, no pages yet)
