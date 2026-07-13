@@ -36,6 +36,13 @@ session can pick up without re-reading the whole brief or plan.
       edit/delete), with an Add Unit form that includes a Property
       picker. Added because Units previously had no top-level nav entry
       and were only reachable by drilling into a specific Property first.
+- [x] Setup → Leases (`/admin/setup/leases`) — portfolio-wide lease list
+      (property, unit, tenant(s), status, dates, rent, deposit, balance
+      owed), Property + Status filters, Add Lease form with a Unit
+      picker. Same discoverability fix as Units — leases were only
+      reachable via Property → Unit → tenant-name link. Correctly shows
+      full lease *history* per unit (e.g. an Ended lease alongside the
+      unit's current Active one), not just current occupancy.
       Dashboard's Units count card now links here too.
 - [x] Owner setup UI (Setup → Owners: create/list/edit/delete; Property
       detail page shows current PropertyOwner rows and a form to
