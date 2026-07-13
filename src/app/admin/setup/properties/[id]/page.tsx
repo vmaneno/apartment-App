@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { UnitForm } from './UnitForm'
 import { UnitRowActions } from './UnitRowActions'
 import { PropertyOwnerForm } from './PropertyOwnerForm'
+import { ManagementFeeForm } from './ManagementFeeForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const [property, owners] = await Promise.all([
     prisma.property.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { units: { where: { active: true }, orderBy: { unitNumber: 'asc' } }, propertyOwners: { include: { owner: true } } },
+      include: { units: { where: { active: true }, orderBy: { unitNumber: 'asc' } }, propertyOwners: { include: { owner: true } }, managementAgreement: true },
     }),
     prisma.owner.findMany({
       where: { organizationId: session.organizationId, active: true },
@@ -46,6 +47,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </ul>
         )}
         <PropertyOwnerForm propertyId={property.id} owners={owners} />
+      </div>
+
+      <div className="rounded-xl p-5 mb-6" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <h2 className="font-semibold mb-3 text-sm" style={{ color: 'var(--text-primary)' }}>Management Fee</h2>
+        <ManagementFeeForm propertyId={property.id} feePercent={property.managementAgreement?.feePercent ?? 0} />
       </div>
 
       <div className="mb-6"><UnitForm propertyId={property.id} /></div>

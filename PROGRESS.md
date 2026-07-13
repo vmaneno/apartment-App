@@ -170,15 +170,47 @@ session can pick up without re-reading the whole brief or plan.
       picker + date range (same UTC-safe range pattern as Income
       Statement) showing each of the owner's properties' Income/Expense/
       NOI for the period × their `PropertyOwner.ownershipPercent`, plus a
-      total. Report-only, no distribution/payment posting yet (a natural
-      next increment — DR Equity/Draw, CR Operating bank — once actually
-      needed). Deliberately ignores `ManagementAgreement.feePercent` — no
-      UI was built for it, every property is treated as self-managed.
-- [ ] Management-fee P&L, owner distributions (actual cash posting), vendor
-      1099s, budgeting, document storage, tenant self-service portal, RUBS,
-      inspections, preventive maintenance, applicant screening — not
-      started. Schema for `Budget`, `Document`, `Inspection` intentionally
-      not created yet.
+      total.
+- [x] Management fee — minimal "Management Fee %" control on the Property
+      detail page, upserting the long-dormant `ManagementAgreement` model
+      (only `feePercent` is exposed; `leasingFeeAmount`/`effectiveDate`/
+      `endDate` stay unused). Owner Statement now has a `Mgmt Fee` column
+      (`income × feePercent / 100`) and nets it out before applying
+      ownership %: `Net to Owner = (NOI − fee) × ownershipPercent / 100`.
+- [x] Owner distributions — `OwnerDistribution` model (one row per payout).
+      `recordOwnerDistribution()` (DR `3000 Owner Distributions` Equity /
+      CR the chosen bank account's GL) in `src/lib/accounting.ts`. Lives as
+      a per-property "Record Distribution" action directly on the Owner
+      Statement page (not a new Owner detail page — cash leaves a specific
+      property's account, so the action sits next to that property's Net
+      to Owner figure), pre-filled with `share − already distributed`, plus
+      a Distributed column.
+- [x] Prepaid credit / overpayment handling — `recordPayment()` and
+      `recordVendorPayment()` no longer reject overpayment. The excess
+      posts to a new `2300 Prepaid Rent` (Liability, AR) or `1700 Vendor
+      Credit` (Asset, AP) account instead of `1500`/`2000`. No new models
+      needed for tracking credit — a payment's *unapplied* amount
+      (`payment.amount − sum(paymentApplications.appliedAmount)`) already
+      **is** the available credit. `getLeaseCredit`/`getVendorCredit` sum
+      that; `applyLeaseCredit`/`applyVendorCredit` create **new
+      `PaymentApplication`/`VendorPaymentApplication` rows against the
+      existing payment** (no new Payment, no bank account touched — the
+      cash already arrived at overpayment time) and post `DR 2300/CR 1500`
+      or `DR 2000/CR 1700`. Deliberately requires an explicit "Apply
+      Credit" action on the Lease/Vendor detail page — nothing auto-applies.
+- [x] Period-close protection — `Organization.closedThrough` (one date for
+      the whole org, not per-property). `assertPeriodOpen()` in
+      `src/lib/accounting.ts` is the first line of every posting function
+      (charges, payments, invoices, deposits, distributions, credit
+      applications) and throws if the transaction date is on or before
+      `closedThrough`. Admin-only UI at `/admin/setup/organization`
+      (`session.role !== 'admin'` is checked both client-side, for the
+      inline "Admins only" message, and server-side in the PATCH route —
+      never trust the client-side gate alone).
+- [ ] Vendor 1099s, budgeting, document storage, tenant self-service
+      portal, RUBS, inspections, preventive maintenance, applicant
+      screening — not started. Schema for `Budget`, `Document`,
+      `Inspection` intentionally not created yet.
 
 ## Known gotcha for future sessions
 
@@ -195,12 +227,13 @@ script) or it will silently read/write `public.*` instead of
 
 All of the design brief's Phase 1 MVP checklist is now built (see items
 above), including AP/vendor-bill posting — both the AR and AP sides of the
-GL are live now. What's left: period-close protection and prepaid-
-credit/overpayment handling (both deliberately deferred, tracked above),
-and Rent Roll's balance column. Phase 2 has started (security deposits,
-owner statements); the rest of Phase 2/3 is unstarted.
+GL are live now, and period-close protection and prepaid-credit/overpayment
+handling (previously deferred) are both done too. What's left: Rent Roll's
+balance column. Phase 2 has picked up several items (security deposits,
+owner statements, management fee, owner distributions); the rest of
+Phase 2/3 is unstarted.
 
-## Fixed this session
+## Fixed in the security-deposit / owner-statements session
 
 - Income Statement / Balance Sheet date-range filters were parsing
   `startDate`/`endDate`/`asOfDate` query params with
@@ -228,15 +261,19 @@ date-related feature — it's bitten this app twice now.
 
 ## Test data currently in the DB
 
-Sample Property ("Maple Ridge Apartments (Renamed)") with Units 101/102,
-an Owner ("Riverside Capital LLC") and a "Self (default)" owner (100% on
-Maple Ridge), Tenants (including "Jane A. Doe"), two Leases with posted
-Rent charges ($1,650 + $1,400) and partial payments ($1,000 + $200 against
-Unit 101's original lease), a Bank Account ("Operating Checking") plus a
-"Security Deposit Trust" account, a Vendor ("Acme Plumbing", COI
-intentionally expired to test the badge) with a $500 invoice
-(`5000 Repairs & Maintenance`) and a $200 partial payment against it, a
+Sample Property ("Maple Ridge Apartments (Renamed)", 10% management fee
+set) with Units 101/102, an Owner ("Riverside Capital LLC", 60% on Maple
+Ridge) and a "Self (default)" owner (100% on Maple Ridge — the two aren't
+reconciled to sum to 100%, harmless test-data overlap, not a validation
+gap worth adding yet), Tenants (including "Jane A. Doe"), two Leases with
+posted Rent charges ($1,650 + $1,400) and various charges/payments/credit
+applications against Unit 102's lease (including a deliberate $100
+overpayment partially applied as prepaid credit), a Bank Account
+("Operating Checking") plus a "Security Deposit Trust" account, a Vendor
+("Acme Plumbing", COI intentionally expired to test the badge) with two
+invoices, a payment, an overpayment, and a vendor-credit application, a
 security deposit on Unit 102's lease ($1,400 collected, then returned as
-$1,200 to tenant / $200 retained), and a Work Order — all created during
-end-to-end verification across this app's build passes. Safe to delete
-once real data entry starts.
+$1,200 to tenant / $200 retained), a $50 test Owner Distribution to
+Riverside Capital LLC, and a Work Order — all created during end-to-end
+verification across this app's build passes. Safe to delete once real
+data entry starts.

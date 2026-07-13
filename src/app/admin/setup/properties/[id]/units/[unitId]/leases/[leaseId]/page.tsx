@@ -9,6 +9,7 @@ import { PostChargeForm } from './PostChargeForm'
 import { RecordPaymentForm } from './RecordPaymentForm'
 import { CollectDepositForm } from './CollectDepositForm'
 import { ReturnDepositForm } from './ReturnDepositForm'
+import { ApplyCreditForm } from './ApplyCreditForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
   const totalCharged = chargeRows.reduce((s, c) => s + c.amount, 0)
   const totalPaid = lease.payments.reduce((s, p) => s + p.amount, 0)
   const balance = Math.round((totalCharged - totalPaid) * 100) / 100
+  const credit = Math.round(lease.payments.reduce((s, p) => s + (p.amount - p.paymentApplications.reduce((s2, a) => s2 + a.appliedAmount, 0)), 0) * 100) / 100
 
   const paymentRows = lease.payments.map(p => ({
     id: p.id,
@@ -102,7 +104,10 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
         </div>
         <div>
           <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Payments</h2>
-          <div className="mb-4"><RecordPaymentForm leaseId={lease.id} balance={balance} bankAccounts={bankAccounts} /></div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <RecordPaymentForm leaseId={lease.id} balance={balance} bankAccounts={bankAccounts} />
+            {credit > 0.004 && balance > 0.004 && <ApplyCreditForm leaseId={lease.id} credit={credit} balance={balance} />}
+          </div>
           <DataTable
             columns={[
               { key: 'date', label: 'Date', render: (r: Record<string, unknown>) => formatDate(r.date as Date) },

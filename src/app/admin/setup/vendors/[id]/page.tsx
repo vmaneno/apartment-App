@@ -7,6 +7,7 @@ import { DataTable } from '@/components/ui/DataTable'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { EnterInvoiceForm } from './EnterInvoiceForm'
 import { RecordVendorPaymentForm } from './RecordVendorPaymentForm'
+import { ApplyCreditForm } from './ApplyCreditForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
     where: { id, organizationId: session.organizationId },
     include: {
       vendorInvoices: { include: { property: true, glAccount: true, paymentApplications: true }, orderBy: { date: 'asc' } },
-      vendorPayments: { orderBy: { date: 'asc' } },
+      vendorPayments: { include: { paymentApplications: true }, orderBy: { date: 'asc' } },
     },
   })
   if (!vendor) notFound()
@@ -54,6 +55,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
   const totalInvoiced = invoiceRows.reduce((s, i) => s + i.amount, 0)
   const totalPaid = vendor.vendorPayments.reduce((s, p) => s + p.amount, 0)
   const balance = Math.round((totalInvoiced - totalPaid) * 100) / 100
+  const credit = Math.round(vendor.vendorPayments.reduce((s, p) => s + (p.amount - p.paymentApplications.reduce((s2, a) => s2 + a.appliedAmount, 0)), 0) * 100) / 100
 
   const paymentRows = vendor.vendorPayments.map(p => ({
     id: p.id,
@@ -107,7 +109,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
         </div>
         <div>
           <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Payments</h2>
-          <div className="mb-4"><RecordVendorPaymentForm vendorId={vendor.id} balance={balance} bankAccounts={bankAccountOptions} /></div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <RecordVendorPaymentForm vendorId={vendor.id} balance={balance} bankAccounts={bankAccountOptions} />
+            {credit > 0.004 && balance > 0.004 && <ApplyCreditForm vendorId={vendor.id} credit={credit} balance={balance} />}
+          </div>
           <DataTable
             columns={[
               { key: 'date', label: 'Date', render: (r: Record<string, unknown>) => formatDate(r.date as Date) },

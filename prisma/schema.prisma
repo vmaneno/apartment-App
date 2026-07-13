@@ -9,10 +9,11 @@ datasource db {
 
 // The tenant of the software — a management company, or a self-managed owner-operator.
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id            String    @id @default(cuid())
+  name          String
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  closedThrough DateTime?
 
   users           User[]
   owners          Owner[]
@@ -48,7 +49,8 @@ model Owner {
   phone          String?
   active         Boolean      @default(true)
 
-  propertyOwners PropertyOwner[]
+  propertyOwners     PropertyOwner[]
+  ownerDistributions OwnerDistribution[]
 }
 
 model Property {
@@ -71,6 +73,7 @@ model Property {
   bankAccounts        BankAccount[]
   transactionLines    TransactionLine[]
   vendorInvoices      VendorInvoice[]
+  ownerDistributions  OwnerDistribution[]
 }
 
 // Join: Property <-> Owner, with ownership % — supports co-owned properties.
@@ -270,8 +273,22 @@ model BankAccount {
   glAccount   ChartOfAccount @relation(fields: [glAccountId], references: [id])
   active      Boolean        @default(true)
 
-  vendorPayments   VendorPayment[]
-  securityDeposits SecurityDeposit[]
+  vendorPayments     VendorPayment[]
+  securityDeposits   SecurityDeposit[]
+  ownerDistributions OwnerDistribution[]
+}
+
+// A cash payout to an Owner for their share of a Property's net income.
+model OwnerDistribution {
+  id            String      @id @default(cuid())
+  ownerId       String
+  owner         Owner       @relation(fields: [ownerId], references: [id])
+  propertyId    String
+  property      Property    @relation(fields: [propertyId], references: [id])
+  bankAccountId String
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
+  amount        Float
+  date          DateTime    @default(now())
 }
 
 // Deposit lifecycle for a lease: one row, updated on return. Its own model
