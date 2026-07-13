@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -26,7 +27,11 @@ export default async function VendorsPage() {
       <div className="mb-6"><VendorForm /></div>
       <DataTable
         columns={[
-          { key: 'name', label: 'Name' },
+          { key: 'name', label: 'Name', render: (r: Record<string, unknown>) => (
+            <Link href={`/admin/setup/vendors/${r.id}`} className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
+              {r.name as string}
+            </Link>
+          ) },
           { key: 'trade', label: 'Trade', render: (r: Record<string, unknown>) => (r.trade as string | null) ?? '—' },
           { key: 'email', label: 'Email', render: (r: Record<string, unknown>) => (r.email as string | null) ?? '—' },
           { key: 'phone', label: 'Phone', render: (r: Record<string, unknown>) => (r.phone as string | null) ?? '—' },

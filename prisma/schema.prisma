@@ -70,6 +70,7 @@ model Property {
   workOrders          WorkOrder[]
   bankAccounts        BankAccount[]
   transactionLines    TransactionLine[]
+  vendorInvoices      VendorInvoice[]
 }
 
 // Join: Property <-> Owner, with ownership % — supports co-owned properties.
@@ -197,7 +198,50 @@ model Vendor {
   w9OnFile       Boolean      @default(false)
   active         Boolean      @default(true)
 
-  workOrders WorkOrder[]
+  workOrders      WorkOrder[]
+  vendorInvoices  VendorInvoice[]
+  vendorPayments  VendorPayment[]
+}
+
+// AP mirror of LeaseCharge — one invoice, one Expense GL line.
+model VendorInvoice {
+  id            String         @id @default(cuid())
+  vendorId      String
+  vendor        Vendor         @relation(fields: [vendorId], references: [id])
+  propertyId    String
+  property      Property       @relation(fields: [propertyId], references: [id])
+  glAccountId   String
+  glAccount     ChartOfAccount @relation(fields: [glAccountId], references: [id])
+  invoiceNumber String?
+  amount        Float
+  date          DateTime       @default(now())
+  description   String?
+
+  paymentApplications VendorPaymentApplication[] @relation("InvoiceTx")
+}
+
+// AP mirror of Payment — a vendor payment, FIFO-allocated across their outstanding invoices.
+model VendorPayment {
+  id            String      @id @default(cuid())
+  vendorId      String
+  vendor        Vendor      @relation(fields: [vendorId], references: [id])
+  bankAccountId String
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
+  amount        Float
+  date          DateTime    @default(now())
+  method        String
+
+  paymentApplications VendorPaymentApplication[] @relation("PaymentTx")
+}
+
+// Links a VendorPayment to the VendorInvoice(s) it pays off — mirrors PaymentApplication.
+model VendorPaymentApplication {
+  id            String        @id @default(cuid())
+  paymentId     String
+  payment       VendorPayment @relation("PaymentTx", fields: [paymentId], references: [id])
+  invoiceId     String
+  invoice       VendorInvoice @relation("InvoiceTx", fields: [invoiceId], references: [id])
+  appliedAmount Float
 }
 
 model WorkOrder {
@@ -224,6 +268,8 @@ model BankAccount {
   glAccountId String
   glAccount   ChartOfAccount @relation(fields: [glAccountId], references: [id])
   active      Boolean        @default(true)
+
+  vendorPayments VendorPayment[]
 }
 
 // Chart of Accounts, scoped per Organization (mirrors USHoa-App's per-HOA COA).
@@ -236,8 +282,9 @@ model ChartOfAccount {
   glType         String       // 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense'
   active         Boolean      @default(true)
 
-  lines        TransactionLine[]
-  bankAccounts BankAccount[]
+  lines          TransactionLine[]
+  bankAccounts   BankAccount[]
+  vendorInvoices VendorInvoice[]
 
   @@unique([organizationId, glNumber])
 }

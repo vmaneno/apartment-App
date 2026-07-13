@@ -35,6 +35,7 @@ async function main() {
   const chartOfAccounts = [
     { glNumber: '1000', glName: 'Operating Cash', glType: 'Asset' },
     { glNumber: '1500', glName: 'Rent Receivable', glType: 'Asset' },
+    { glNumber: '2000', glName: 'Accounts Payable', glType: 'Liability' },
     { glNumber: '4000', glName: 'Rental Income', glType: 'Income' },
     { glNumber: '4100', glName: 'Other Income', glType: 'Income' },
   ]

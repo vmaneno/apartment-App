@@ -152,3 +152,156 @@ export async function getLeaseBalance(leaseId: string): Promise<number> {
   const total = charges.reduce((s, c) => s + (c.amount - c.paymentApplications.reduce((s2, a) => s2 + a.appliedAmount, 0)), 0)
   return r2(total)
 }
+
+// AP mirror of postLeaseCharge. DR: the chosen Expense GL account | CR: 2000 Accounts Payable.
+export async function postVendorInvoice(args: {
+  organizationId: string
+  vendorId: string
+  propertyId: string
+  glAccountId: string
+  amount: number
+  date?: Date
+  description?: string
+  invoiceNumber?: string
+}) {
+  const txDate = args.date ?? new Date()
+  const amount = r2(args.amount)
+  if (amount <= 0) throw new Error('Invoice amount must be greater than zero')
+
+  const [vendor, expenseGl, apGl] = await Promise.all([
+    prisma.vendor.findFirst({ where: { id: args.vendorId, organizationId: args.organizationId } }),
+    prisma.chartOfAccount.findFirst({ where: { id: args.glAccountId, organizationId: args.organizationId } }),
+    getGl(args.organizationId, '2000'),
+  ])
+  if (!vendor) throw new Error('Vendor not found')
+  if (!expenseGl) throw new Error('GL account not found')
+  if (expenseGl.glType !== 'Expense') throw new Error('Invoices must be coded to an Expense GL account')
+
+  return prisma.$transaction(async (tx) => {
+    const invoice = await tx.vendorInvoice.create({
+      data: {
+        vendorId: args.vendorId,
+        propertyId: args.propertyId,
+        glAccountId: args.glAccountId,
+        invoiceNumber: args.invoiceNumber || null,
+        amount,
+        date: txDate,
+        description: args.description || null,
+      },
+    })
+
+    await tx.transaction.create({
+      data: {
+        date: txDate,
+        organizationId: args.organizationId,
+        transactionType: 'VENDOR_INVOICE',
+        description: `Vendor invoice — ${vendor.name}${args.invoiceNumber ? ` #${args.invoiceNumber}` : ''}`,
+        lines: {
+          create: [
+            { glAccountId: expenseGl.id, propertyId: args.propertyId, debit: amount, credit: 0, description: args.description || vendor.name },
+            { glAccountId: apGl.id, propertyId: args.propertyId, debit: 0, credit: amount, description: vendor.name },
+          ],
+        },
+      },
+    })
+
+    return invoice
+  })
+}
+
+// FIFO-allocates a payment across a vendor's outstanding invoices, oldest first.
+// DR: 2000 Accounts Payable | CR: the selected BankAccount's GL, for the full payment amount.
+// Overpayment (amount > total outstanding) is rejected — same boundary as recordPayment.
+export async function recordVendorPayment(args: {
+  organizationId: string
+  vendorId: string
+  bankAccountId: string
+  amount: number
+  date?: Date
+  method: string
+}) {
+  const txDate = args.date ?? new Date()
+  const amount = r2(args.amount)
+  if (amount <= 0) throw new Error('Payment amount must be greater than zero')
+
+  const vendor = await prisma.vendor.findFirst({ where: { id: args.vendorId, organizationId: args.organizationId } })
+  if (!vendor) throw new Error('Vendor not found')
+
+  const bankAccount = await prisma.bankAccount.findFirst({
+    where: { id: args.bankAccountId, active: true, property: { organizationId: args.organizationId } },
+  })
+  if (!bankAccount) throw new Error('Bank account not found')
+
+  const invoices = await prisma.vendorInvoice.findMany({
+    where: { vendorId: args.vendorId },
+    include: { paymentApplications: true },
+    orderBy: { date: 'asc' },
+  })
+  const outstandingInvoices = invoices
+    .map(i => ({ id: i.id, propertyId: i.propertyId, outstanding: r2(i.amount - i.paymentApplications.reduce((s, a) => s + a.appliedAmount, 0)) }))
+    .filter(i => i.outstanding > 0.004)
+
+  const totalOutstanding = r2(outstandingInvoices.reduce((s, i) => s + i.outstanding, 0))
+  if (totalOutstanding <= 0.004) {
+    throw new Error('This vendor has no outstanding balance — nothing to apply a payment to')
+  }
+  if (amount > totalOutstanding + 0.004) {
+    throw new Error(
+      `Payment ($${amount.toFixed(2)}) exceeds the outstanding balance ($${totalOutstanding.toFixed(2)}). ` +
+      `Overpayments aren't supported yet — record a payment up to the outstanding amount.`
+    )
+  }
+
+  let remaining = amount
+  const applications: { invoiceId: string; appliedAmount: number; propertyId: string }[] = []
+  for (const invoice of outstandingInvoices) {
+    if (remaining < 0.005) break
+    const applied = r2(Math.min(remaining, invoice.outstanding))
+    applications.push({ invoiceId: invoice.id, appliedAmount: applied, propertyId: invoice.propertyId })
+    remaining = r2(remaining - applied)
+  }
+
+  const apGl = await getGl(args.organizationId, '2000')
+  // A vendor payment can span invoices from more than one property. Tag the AP line with the
+  // property carrying the largest share so the per-property Balance Sheet reads sensibly.
+  const propertyTotals = new Map<string, number>()
+  for (const a of applications) propertyTotals.set(a.propertyId, (propertyTotals.get(a.propertyId) ?? 0) + a.appliedAmount)
+  const primaryPropertyId = [...propertyTotals.entries()].sort((a, b) => b[1] - a[1])[0][0]
+
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.vendorPayment.create({
+      data: { vendorId: args.vendorId, bankAccountId: args.bankAccountId, amount, date: txDate, method: args.method },
+    })
+
+    await tx.vendorPaymentApplication.createMany({
+      data: applications.map(a => ({ paymentId: payment.id, invoiceId: a.invoiceId, appliedAmount: a.appliedAmount })),
+    })
+
+    await tx.transaction.create({
+      data: {
+        date: txDate,
+        organizationId: args.organizationId,
+        transactionType: 'VENDOR_PAYMENT',
+        description: `Payment (${args.method}) — ${vendor.name}`,
+        lines: {
+          create: [
+            { glAccountId: apGl.id, propertyId: primaryPropertyId, debit: amount, credit: 0, description: 'Vendor payment' },
+            { glAccountId: bankAccount.glAccountId, propertyId: primaryPropertyId, debit: 0, credit: amount, description: 'Vendor payment' },
+          ],
+        },
+      },
+    })
+
+    return payment
+  })
+}
+
+// Total outstanding balance for a vendor (sum of unpaid invoice amounts).
+export async function getVendorBalance(vendorId: string): Promise<number> {
+  const invoices = await prisma.vendorInvoice.findMany({
+    where: { vendorId },
+    include: { paymentApplications: true },
+  })
+  const total = invoices.reduce((s, i) => s + (i.amount - i.paymentApplications.reduce((s2, a) => s2 + a.appliedAmount, 0)), 0)
+  return r2(total)
+}

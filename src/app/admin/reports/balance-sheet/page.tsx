@@ -28,7 +28,7 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
   const lines = await prisma.transactionLine.findMany({
     where: {
       glAccount: { organizationId: session.organizationId, glType: { in: ['Asset', 'Liability', 'Equity'] } },
-      transaction: { date: { lte: new Date(`${asOf}T23:59:59`) } },
+      transaction: { date: { lte: new Date(`${asOf}T23:59:59Z`) } },
       ...(propertyId ? { propertyId } : {}),
     },
     include: { glAccount: true },
@@ -75,7 +75,7 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
       <div className="mb-6"><BalanceSheetFilters properties={properties} propertyId={propertyId ?? ''} asOfDate={asOf} /></div>
 
       {section('Assets', assets, totalAssets)}
-      {section('Liabilities', liabilities, totalLiabilities, 'No liabilities posted yet — nothing in this app posts to Liability accounts yet (e.g. no AP/vendor bills).')}
+      {section('Liabilities', liabilities, totalLiabilities, 'No liabilities posted yet — enter a vendor invoice under AP Invoices.')}
       {section('Equity', equity, totalEquity, 'No equity postings yet, and this app has no period-close/retained-earnings roll-up — Income and Expense activity does not flow into Equity here.')}
 
       <div className="rounded-xl p-4 flex justify-between items-center" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>

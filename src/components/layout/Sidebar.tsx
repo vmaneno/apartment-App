@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, LogOut } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Vendors', href: '/admin/setup/vendors', icon: <Wrench size={16} /> },
   { label: 'Leases', href: '/admin/setup/leases', icon: <ScrollText size={16} /> },
   { label: 'Post Rent', href: '/admin/ar/post-rent', icon: <Receipt size={16} /> },
+  { label: 'AP Invoices', href: '/admin/ap/invoices', icon: <FileText size={16} /> },
   { label: 'Rent Roll', href: '/admin/reports/rent-roll', icon: <ClipboardList size={16} /> },
   { label: 'Chart of Accounts', href: '/admin/setup/chart-of-accounts', icon: <BookOpen size={16} /> },
   { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },

@@ -33,7 +33,7 @@ export default async function IncomeStatementPage({ searchParams }: { searchPara
   const lines = await prisma.transactionLine.findMany({
     where: {
       glAccount: { organizationId: session.organizationId, glType: { in: ['Income', 'Expense'] } },
-      transaction: { date: { gte: new Date(`${start}T00:00:00`), lte: new Date(`${end}T23:59:59`) } },
+      transaction: { date: { gte: new Date(`${start}T00:00:00Z`), lte: new Date(`${end}T23:59:59Z`) } },
       ...(propertyId ? { propertyId } : {}),
     },
     include: { glAccount: true },
@@ -82,7 +82,7 @@ export default async function IncomeStatementPage({ searchParams }: { searchPara
         </div>
         {expense.length === 0 ? (
           <p className="px-4 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-            No expenses posted in this range — this app doesn&apos;t have vendor bill/expense posting yet, only lease charges and payments.
+            No expenses posted in this range — enter a vendor invoice under AP Invoices.
           </p>
         ) : expense.map((a, i) => (
           <div key={a.glNumber} className="flex justify-between px-4 py-2 text-sm" style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'transparent', borderTop: '1px solid var(--border)', color: 'var(--text-primary)' }}>

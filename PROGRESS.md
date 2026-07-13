@@ -121,13 +121,34 @@ session can pick up without re-reading the whole brief or plan.
       Needed a minimal Vendor setup page first (`/admin/setup/vendors`:
       name, trade, email, phone, COI expiration with an expired-badge,
       W-9 on file) since Work Orders reference Vendor.
+- [x] AP / vendor-bill posting — `VendorInvoice`, `VendorPayment`,
+      `VendorPaymentApplication` models, directly mirroring the AR
+      shape (`LeaseCharge`/`Payment`/`PaymentApplication`).
+      `postVendorInvoice()` (DR the chosen Expense GL / CR `2000
+      Accounts Payable`, seeded as a Liability account) and
+      `recordVendorPayment()` (FIFO across a vendor's outstanding
+      invoices oldest-first, DR AP / CR the paying BankAccount's GL,
+      same overpayment-rejection boundary as `recordPayment`) in
+      `src/lib/accounting.ts`. UI: Vendor detail page
+      (`/admin/setup/vendors/[id]`, new — Vendors was previously list-only)
+      with balance cards + Enter Invoice / Record Payment forms, plus a
+      top-level `/admin/ap/invoices` list with a Vendor picker (added
+      proactively, same discoverability lesson as Units/Leases). Income
+      Statement's Expense section and Balance Sheet's Liabilities section
+      now render real data instead of their "nothing posts here yet" notes.
+      A vendor payment spanning invoices across more than one property
+      tags the AP GL line with whichever property carries the largest
+      share of that payment (per-property Balance Sheet has no natural
+      home for a split AP line otherwise).
 - [ ] Period-close protection — no `closedThrough`-style field exists on
       Organization/Property yet (HOA app's `assertPeriodOpen` has no
       equivalent here).
 - [ ] Rent Roll "Balance" column — natural follow-up now that charges/
       payments exist; not added yet.
-- [ ] Prepaid credit / overpayment handling — still rejected outright,
-      no liability account for it yet.
+- [ ] Prepaid credit / overpayment handling — still rejected outright on
+      both AR and AP sides, no liability/asset account modeled for it yet.
+- [ ] Vendor 1099 report — `Vendor.w9OnFile` exists but nothing sums
+      payments toward the $600 threshold yet; that's Phase 2/3.
 
 ## Phase 2 / Phase 3 (design brief §6)
 
@@ -151,11 +172,24 @@ script) or it will silently read/write `public.*` instead of
 ## Phase 1 status
 
 All of the design brief's Phase 1 MVP checklist is now built (see items
-above) except: period-close protection and prepaid-credit/overpayment
-handling (both deliberately deferred, tracked above), and Rent Roll's
-balance column. Phase 2/3 (below) is unstarted. Next natural step is
-probably AP/vendor-bill posting, since that's what would populate the
-Expense side of the Income Statement and give Work Orders a cost.
+above), including AP/vendor-bill posting — both the AR and AP sides of the
+GL are live now. What's left: period-close protection and prepaid-
+credit/overpayment handling (both deliberately deferred, tracked above),
+and Rent Roll's balance column. Phase 2/3 (below) is unstarted. Next up:
+security-deposit trust accounting and owner statements.
+
+## Fixed this session
+
+Income Statement / Balance Sheet date-range filters were parsing
+`startDate`/`endDate`/`asOfDate` query params with `new Date(`${d}T00:00:00`)`
+(no `Z`) — interpreted as **local server time**, not UTC. Every posting
+function stores dates via `new Date(data.date)` on a bare `YYYY-MM-DD`
+string, which JS parses as UTC midnight. On a UTC-5 server this meant the
+report's range start was 5 hours *later* than a same-day transaction's
+actual timestamp, silently excluding it. Fixed by adding `Z` to both
+filter boundaries in both report pages so everything compares in UTC.
+Worth checking for the same pattern before adding any other date-range
+report.
 
 ## Test data currently in the DB
 
@@ -164,6 +198,7 @@ an Owner ("Riverside Capital LLC"), Tenants (including "Jane A. Doe"),
 two Leases with posted Rent charges ($1,650 + $1,400) and partial
 payments ($1,000 + $200 against Unit 101's original lease), a Bank
 Account ("Operating Checking"), a Vendor ("Acme Plumbing", COI
-intentionally expired to test the badge), and a Work Order — all
-created during end-to-end verification across this app's build passes.
-Safe to delete once real data entry starts.
+intentionally expired to test the badge) with a $500 invoice
+(`5000 Repairs & Maintenance`) and a $200 partial payment against it,
+and a Work Order — all created during end-to-end verification across
+this app's build passes. Safe to delete once real data entry starts.
