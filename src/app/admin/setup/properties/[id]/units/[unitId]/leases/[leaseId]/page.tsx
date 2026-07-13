@@ -7,6 +7,8 @@ import { DataTable } from '@/components/ui/DataTable'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PostChargeForm } from './PostChargeForm'
 import { RecordPaymentForm } from './RecordPaymentForm'
+import { CollectDepositForm } from './CollectDepositForm'
+import { ReturnDepositForm } from './ReturnDepositForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,15 +24,23 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
       leaseTenants: { include: { tenant: true } },
       leaseCharges: { include: { paymentApplications: true }, orderBy: { date: 'asc' } },
       payments: { include: { paymentApplications: true }, orderBy: { date: 'asc' } },
+      securityDeposit: { include: { bankAccount: true } },
     },
   })
   if (!lease) notFound()
 
-  const bankAccounts = await prisma.bankAccount.findMany({
-    where: { propertyId: lease.unit.propertyId, active: true },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true },
-  })
+  const [bankAccounts, trustBankAccounts] = await Promise.all([
+    prisma.bankAccount.findMany({
+      where: { propertyId: lease.unit.propertyId, active: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
+    prisma.bankAccount.findMany({
+      where: { propertyId: lease.unit.propertyId, active: true, type: 'SecurityDepositTrust' },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
+  ])
 
   const chargeRows = lease.leaseCharges.map(c => ({
     id: c.id,
@@ -103,6 +113,30 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
             emptyMessage="No payments yet."
           />
         </div>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Security Deposit</h2>
+        {!lease.securityDeposit ? (
+          <CollectDepositForm leaseId={lease.id} defaultAmount={lease.depositAmount} bankAccounts={trustBankAccounts} />
+        ) : (
+          <div className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            {!lease.securityDeposit.returnedDate ? (
+              <>
+                <p className="text-sm mb-4" style={{ color: 'var(--text-primary)' }}>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium mr-2" style={{ backgroundColor: '#d4a01722', color: '#d4a017' }}>Held</span>
+                  {formatCurrency(lease.securityDeposit.amount)} in {lease.securityDeposit.bankAccount.name}, collected {formatDate(lease.securityDeposit.collectedDate)}
+                </p>
+                <ReturnDepositForm depositId={lease.securityDeposit.id} amount={lease.securityDeposit.amount} />
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium mr-2" style={{ backgroundColor: '#10a06a22', color: '#10a06a' }}>Returned</span>
+                {formatCurrency(lease.securityDeposit.returnedToTenant ?? 0)} to tenant, {formatCurrency(lease.securityDeposit.retained ?? 0)} retained — {formatDate(lease.securityDeposit.returnedDate)}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

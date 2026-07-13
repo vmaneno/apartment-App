@@ -150,13 +150,35 @@ session can pick up without re-reading the whole brief or plan.
 - [ ] Vendor 1099 report — `Vendor.w9OnFile` exists but nothing sums
       payments toward the $600 threshold yet; that's Phase 2/3.
 
-## Phase 2 / Phase 3 (design brief §6)
+## Phase 2 (design brief §6) — in progress
 
-Not started — security-deposit trust accounting, management-fee P&L,
-owner statements/distributions, vendor 1099s, budgeting, document
-storage, tenant self-service portal, RUBS, inspections, preventive
-maintenance, applicant screening. Schema for `Budget`, `Document`,
-`Inspection` intentionally not created yet.
+- [x] Security-deposit trust accounting — `SecurityDeposit` model (one row
+      per lease, updated on return rather than an append-only ledger, since
+      a deposit only has a collect and a return event).
+      `collectSecurityDeposit()` (DR the chosen `SecurityDepositTrust`
+      bank account's GL / CR a new `2200 Security Deposits Held` Liability
+      account) and `returnSecurityDeposit()` (DR 2200 for the full original
+      amount, CR the trust account for the tenant's portion, CR `4100
+      Other Income` for any retained portion — rejects if the two portions
+      don't sum to the original amount) in `src/lib/accounting.ts`. UI: a
+      "Security Deposit" section on the Lease detail page with Collect/
+      Return actions. Known simplification: a retained portion is
+      recognized as income but the cash itself is left sitting in the
+      trust bank account's balance — there's no bank-to-bank transfer
+      mechanic in this app, so nothing physically "moves" it to Operating.
+- [x] Owner Statements — `/admin/reports/owner-statements`, an Owner
+      picker + date range (same UTC-safe range pattern as Income
+      Statement) showing each of the owner's properties' Income/Expense/
+      NOI for the period × their `PropertyOwner.ownershipPercent`, plus a
+      total. Report-only, no distribution/payment posting yet (a natural
+      next increment — DR Equity/Draw, CR Operating bank — once actually
+      needed). Deliberately ignores `ManagementAgreement.feePercent` — no
+      UI was built for it, every property is treated as self-managed.
+- [ ] Management-fee P&L, owner distributions (actual cash posting), vendor
+      1099s, budgeting, document storage, tenant self-service portal, RUBS,
+      inspections, preventive maintenance, applicant screening — not
+      started. Schema for `Budget`, `Document`, `Inspection` intentionally
+      not created yet.
 
 ## Known gotcha for future sessions
 
@@ -175,30 +197,46 @@ All of the design brief's Phase 1 MVP checklist is now built (see items
 above), including AP/vendor-bill posting — both the AR and AP sides of the
 GL are live now. What's left: period-close protection and prepaid-
 credit/overpayment handling (both deliberately deferred, tracked above),
-and Rent Roll's balance column. Phase 2/3 (below) is unstarted. Next up:
-security-deposit trust accounting and owner statements.
+and Rent Roll's balance column. Phase 2 has started (security deposits,
+owner statements); the rest of Phase 2/3 is unstarted.
 
 ## Fixed this session
 
-Income Statement / Balance Sheet date-range filters were parsing
-`startDate`/`endDate`/`asOfDate` query params with `new Date(`${d}T00:00:00`)`
-(no `Z`) — interpreted as **local server time**, not UTC. Every posting
-function stores dates via `new Date(data.date)` on a bare `YYYY-MM-DD`
-string, which JS parses as UTC midnight. On a UTC-5 server this meant the
-report's range start was 5 hours *later* than a same-day transaction's
-actual timestamp, silently excluding it. Fixed by adding `Z` to both
-filter boundaries in both report pages so everything compares in UTC.
-Worth checking for the same pattern before adding any other date-range
-report.
+- Income Statement / Balance Sheet date-range filters were parsing
+  `startDate`/`endDate`/`asOfDate` query params with
+  `new Date(`${d}T00:00:00`)` (no `Z`) — interpreted as **local server
+  time**, not UTC. Every posting function stores dates via
+  `new Date(data.date)` on a bare `YYYY-MM-DD` string, which JS parses as
+  UTC midnight. On a UTC-5 server this meant the report's range start was
+  5 hours *later* than a same-day transaction's actual timestamp, silently
+  excluding it. Fixed by adding `Z` to both filter boundaries in both
+  report pages so everything compares in UTC.
+- `formatDate()` in `src/lib/utils.ts` had the same root cause, but
+  app-wide: `toLocaleDateString()` with no `timeZone` renders in local
+  server time, so every date shown anywhere (lease dates, charge/payment
+  dates, COI expiration, etc.) displayed one day behind what was actually
+  entered, on a UTC-5 server. Fixed by pinning `timeZone: 'UTC'` — found
+  while verifying the new deposit-return date rendered correctly.
+- `returnSecurityDeposit()` returned the pre-update `SecurityDeposit` row
+  from inside its `$transaction` instead of the updated one — the DB write
+  was always correct, but the API response (and thus the immediate caller)
+  saw stale `returnedDate`/`returnedToTenant`/`retained` values. Fixed by
+  capturing and returning the `tx.securityDeposit.update()` result.
+
+Worth checking for the UTC-vs-local pattern before adding any other
+date-related feature — it's bitten this app twice now.
 
 ## Test data currently in the DB
 
 Sample Property ("Maple Ridge Apartments (Renamed)") with Units 101/102,
-an Owner ("Riverside Capital LLC"), Tenants (including "Jane A. Doe"),
-two Leases with posted Rent charges ($1,650 + $1,400) and partial
-payments ($1,000 + $200 against Unit 101's original lease), a Bank
-Account ("Operating Checking"), a Vendor ("Acme Plumbing", COI
+an Owner ("Riverside Capital LLC") and a "Self (default)" owner (100% on
+Maple Ridge), Tenants (including "Jane A. Doe"), two Leases with posted
+Rent charges ($1,650 + $1,400) and partial payments ($1,000 + $200 against
+Unit 101's original lease), a Bank Account ("Operating Checking") plus a
+"Security Deposit Trust" account, a Vendor ("Acme Plumbing", COI
 intentionally expired to test the badge) with a $500 invoice
-(`5000 Repairs & Maintenance`) and a $200 partial payment against it,
-and a Work Order — all created during end-to-end verification across
-this app's build passes. Safe to delete once real data entry starts.
+(`5000 Repairs & Maintenance`) and a $200 partial payment against it, a
+security deposit on Unit 102's lease ($1,400 collected, then returned as
+$1,200 to tenant / $200 retained), and a Work Order — all created during
+end-to-end verification across this app's build passes. Safe to delete
+once real data entry starts.

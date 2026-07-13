@@ -137,9 +137,10 @@ model Lease {
   depositAmount Float     @default(0)
   createdAt     DateTime  @default(now())
 
-  leaseTenants LeaseTenant[]
-  leaseCharges LeaseCharge[]
-  payments     Payment[]
+  leaseTenants    LeaseTenant[]
+  leaseCharges    LeaseCharge[]
+  payments        Payment[]
+  securityDeposit SecurityDeposit?
 }
 
 // Join: Lease <-> Tenant, for co-tenants.
@@ -269,7 +270,25 @@ model BankAccount {
   glAccount   ChartOfAccount @relation(fields: [glAccountId], references: [id])
   active      Boolean        @default(true)
 
-  vendorPayments VendorPayment[]
+  vendorPayments   VendorPayment[]
+  securityDeposits SecurityDeposit[]
+}
+
+// Deposit lifecycle for a lease: one row, updated on return. Its own model
+// rather than reusing Payment/VendorPayment because a deposit's money
+// doesn't offset a Charge/Invoice — it just moves between an Asset (trust
+// cash) and a Liability.
+model SecurityDeposit {
+  id               String      @id @default(cuid())
+  leaseId          String      @unique
+  lease            Lease       @relation(fields: [leaseId], references: [id])
+  bankAccountId    String
+  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id])
+  amount           Float
+  collectedDate    DateTime    @default(now())
+  returnedDate     DateTime?
+  returnedToTenant Float?
+  retained         Float?
 }
 
 // Chart of Accounts, scoped per Organization (mirrors USHoa-App's per-HOA COA).

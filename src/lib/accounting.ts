@@ -305,3 +305,119 @@ export async function getVendorBalance(vendorId: string): Promise<number> {
   const total = invoices.reduce((s, i) => s + (i.amount - i.paymentApplications.reduce((s2, a) => s2 + a.appliedAmount, 0)), 0)
   return r2(total)
 }
+
+// DR: the chosen SecurityDepositTrust bank account's GL | CR: 2200 Security Deposits Held
+export async function collectSecurityDeposit(args: {
+  organizationId: string
+  leaseId: string
+  bankAccountId: string
+  amount: number
+  date?: Date
+}) {
+  const txDate = args.date ?? new Date()
+  const amount = r2(args.amount)
+  if (amount <= 0) throw new Error('Deposit amount must be greater than zero')
+
+  const lease = await prisma.lease.findUnique({ where: { id: args.leaseId }, include: { unit: true, securityDeposit: true } })
+  if (!lease) throw new Error('Lease not found')
+  if (lease.securityDeposit) throw new Error('A security deposit has already been collected for this lease')
+
+  const bankAccount = await prisma.bankAccount.findFirst({
+    where: { id: args.bankAccountId, propertyId: lease.unit.propertyId, active: true },
+  })
+  if (!bankAccount) throw new Error('Bank account not found for this lease\'s property')
+
+  const depositGl = await getGl(args.organizationId, '2200')
+
+  return prisma.$transaction(async (tx) => {
+    const deposit = await tx.securityDeposit.create({
+      data: { leaseId: args.leaseId, bankAccountId: args.bankAccountId, amount, collectedDate: txDate },
+    })
+
+    await tx.transaction.create({
+      data: {
+        date: txDate,
+        organizationId: args.organizationId,
+        transactionType: 'DEPOSIT_COLLECTED',
+        description: `Security deposit collected — Lease ${args.leaseId}`,
+        lines: {
+          create: [
+            { glAccountId: bankAccount.glAccountId, propertyId: lease.unit.propertyId, debit: amount, credit: 0, description: 'Security deposit' },
+            { glAccountId: depositGl.id, propertyId: lease.unit.propertyId, debit: 0, credit: amount, description: 'Security deposit' },
+          ],
+        },
+      },
+    })
+
+    return deposit
+  })
+}
+
+// DR: 2200 Security Deposits Held (full original amount, zeroing the liability)
+// CR: the trust bank account's GL (returnedToTenant — cash actually leaves)
+// CR: 4100 Other Income (retained — recognized as income; the cash itself stays
+//     recorded in the trust bank account's Asset balance, since there's no
+//     bank-to-bank transfer mechanic in this app yet).
+// Rejects if returnedToTenant + retained doesn't equal the deposit's original amount.
+export async function returnSecurityDeposit(args: {
+  organizationId: string
+  securityDepositId: string
+  returnedToTenant: number
+  retained: number
+  date?: Date
+}) {
+  const txDate = args.date ?? new Date()
+  const returnedToTenant = r2(args.returnedToTenant)
+  const retained = r2(args.retained)
+  if (returnedToTenant < 0 || retained < 0) throw new Error('Amounts cannot be negative')
+
+  const deposit = await prisma.securityDeposit.findFirst({
+    where: { id: args.securityDepositId, lease: { unit: { property: { organizationId: args.organizationId } } } },
+    include: { lease: { include: { unit: true } }, bankAccount: true },
+  })
+  if (!deposit) throw new Error('Security deposit not found')
+  if (deposit.returnedDate) throw new Error('This security deposit has already been returned')
+
+  const split = r2(returnedToTenant + retained)
+  if (Math.abs(split - deposit.amount) > 0.004) {
+    throw new Error(
+      `Returned to Tenant ($${returnedToTenant.toFixed(2)}) + Retained ($${retained.toFixed(2)}) must equal ` +
+      `the collected amount ($${deposit.amount.toFixed(2)}).`
+    )
+  }
+
+  const [depositGl, incomeGl] = await Promise.all([
+    getGl(args.organizationId, '2200'),
+    getGl(args.organizationId, '4100'),
+  ])
+  const propertyId = deposit.lease.unit.propertyId
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.securityDeposit.update({
+      where: { id: deposit.id },
+      data: { returnedDate: txDate, returnedToTenant, retained },
+    })
+
+    const lines = [
+      { glAccountId: depositGl.id, propertyId, debit: deposit.amount, credit: 0, description: 'Security deposit returned' },
+    ]
+    if (returnedToTenant > 0.004) {
+      lines.push({ glAccountId: deposit.bankAccount.glAccountId, propertyId, debit: 0, credit: returnedToTenant, description: 'Returned to tenant' })
+    }
+    if (retained > 0.004) {
+      lines.push({ glAccountId: incomeGl.id, propertyId, debit: 0, credit: retained, description: 'Deposit retained' })
+    }
+
+    await tx.transaction.create({
+      data: {
+        date: txDate,
+        organizationId: args.organizationId,
+        transactionType: 'DEPOSIT_RETURNED',
+        description: `Security deposit returned — Lease ${deposit.leaseId}`,
+        lines: { create: lines },
+      },
+    })
+
+    return updated
+  })
+}
