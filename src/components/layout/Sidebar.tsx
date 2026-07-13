@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, BookOpen, Wrench, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, BookOpen, Wrench, Landmark, LogOut } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Post Rent', href: '/admin/ar/post-rent', icon: <Receipt size={16} /> },
   { label: 'Rent Roll', href: '/admin/reports/rent-roll', icon: <ClipboardList size={16} /> },
   { label: 'Chart of Accounts', href: '/admin/setup/chart-of-accounts', icon: <BookOpen size={16} /> },
+  { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },
 ]
 
 export function Sidebar({ userName }: { userName: string }) {

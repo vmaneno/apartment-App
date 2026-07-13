@@ -216,13 +216,14 @@ model WorkOrder {
 }
 
 model BankAccount {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id])
-  name       String
-  type       String   @default("Operating") // 'Operating' | 'SecurityDepositTrust' | 'Reserve'
-  glNumber   String
-  active     Boolean  @default(true)
+  id          String         @id @default(cuid())
+  propertyId  String
+  property    Property       @relation(fields: [propertyId], references: [id])
+  name        String
+  type        String         @default("Operating") // 'Operating' | 'SecurityDepositTrust' | 'Reserve'
+  glAccountId String
+  glAccount   ChartOfAccount @relation(fields: [glAccountId], references: [id])
+  active      Boolean        @default(true)
 }
 
 // Chart of Accounts, scoped per Organization (mirrors USHoa-App's per-HOA COA).
@@ -235,7 +236,8 @@ model ChartOfAccount {
   glType         String       // 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense'
   active         Boolean      @default(true)
 
-  lines TransactionLine[]
+  lines        TransactionLine[]
+  bankAccounts BankAccount[]
 
   @@unique([organizationId, glNumber])
 }
