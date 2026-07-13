@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, BookOpen, Wrench, Landmark, TrendingUp, Scale, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, LogOut } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -18,6 +18,7 @@ const navItems = [
   { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },
   { label: 'Income Statement', href: '/admin/reports/income-statement', icon: <TrendingUp size={16} /> },
   { label: 'Balance Sheet', href: '/admin/reports/balance-sheet', icon: <Scale size={16} /> },
+  { label: 'Work Orders', href: '/admin/ops/work-orders', icon: <Hammer size={16} /> },
 ]
 
 export function Sidebar({ userName }: { userName: string }) {
