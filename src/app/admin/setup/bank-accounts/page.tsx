@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -44,10 +45,15 @@ export default async function BankAccountsPage() {
             return `${gl.glNumber} – ${gl.glName}`
           } },
           { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
-            <BankAccountRowActions
-              bankAccount={r as unknown as Parameters<typeof BankAccountRowActions>[0]['bankAccount']}
-              glAccounts={glAccounts}
-            />
+            <div className="flex items-center justify-center gap-2">
+              <Link href={`/admin/setup/bank-accounts/${r.id}/reconcile`} className="text-xs underline" style={{ color: 'var(--accent)' }}>
+                Reconcile
+              </Link>
+              <BankAccountRowActions
+                bankAccount={r as unknown as Parameters<typeof BankAccountRowActions>[0]['bankAccount']}
+                glAccounts={glAccounts}
+              />
+            </div>
           ) },
         ]}
         data={bankAccounts as unknown as Record<string, unknown>[]}

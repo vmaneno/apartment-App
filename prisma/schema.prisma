@@ -269,4 +269,6 @@ model TransactionLine {
   debit         Float          @default(0)
   credit        Float          @default(0)
   description   String?
+  cleared       Boolean        @default(false)
+  clearedAt     DateTime?
 }
