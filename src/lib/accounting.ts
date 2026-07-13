@@ -61,11 +61,12 @@ export async function postLeaseCharge(args: {
 }
 
 // FIFO-allocates a payment across a lease's outstanding charges, oldest first.
-// DR: 1000 Operating Cash | CR: 1500 Rent Receivable, for the full payment amount.
+// DR: the selected BankAccount's GL | CR: 1500 Rent Receivable, for the full payment amount.
 // Overpayment (amount > total outstanding) is rejected — no prepaid-credit account exists yet.
 export async function recordPayment(args: {
   organizationId: string
   leaseId: string
+  bankAccountId: string
   amount: number
   date?: Date
   method: string
@@ -76,6 +77,11 @@ export async function recordPayment(args: {
 
   const lease = await prisma.lease.findUnique({ where: { id: args.leaseId }, include: { unit: true } })
   if (!lease) throw new Error('Lease not found')
+
+  const bankAccount = await prisma.bankAccount.findFirst({
+    where: { id: args.bankAccountId, propertyId: lease.unit.propertyId, active: true },
+  })
+  if (!bankAccount) throw new Error('Bank account not found for this lease\'s property')
 
   const charges = await prisma.leaseCharge.findMany({
     where: { leaseId: args.leaseId },
@@ -106,10 +112,7 @@ export async function recordPayment(args: {
     remaining = r2(remaining - applied)
   }
 
-  const [cashGl, arGl] = await Promise.all([
-    getGl(args.organizationId, '1000'),
-    getGl(args.organizationId, '1500'),
-  ])
+  const arGl = await getGl(args.organizationId, '1500')
 
   return prisma.$transaction(async (tx) => {
     const payment = await tx.payment.create({
@@ -128,7 +131,7 @@ export async function recordPayment(args: {
         description: `Payment (${args.method}) — Lease ${args.leaseId}`,
         lines: {
           create: [
-            { glAccountId: cashGl.id, propertyId: lease.unit.propertyId, debit: amount, credit: 0, description: 'Payment received' },
+            { glAccountId: bankAccount.glAccountId, propertyId: lease.unit.propertyId, debit: amount, credit: 0, description: 'Payment received' },
             { glAccountId: arGl.id, propertyId: lease.unit.propertyId, debit: 0, credit: amount, description: 'Payment received' },
           ],
         },

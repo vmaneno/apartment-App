@@ -26,6 +26,12 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
   })
   if (!lease) notFound()
 
+  const bankAccounts = await prisma.bankAccount.findMany({
+    where: { propertyId: lease.unit.propertyId, active: true },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  })
+
   const chargeRows = lease.leaseCharges.map(c => ({
     id: c.id,
     date: c.date,
@@ -86,7 +92,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
         </div>
         <div>
           <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Payments</h2>
-          <div className="mb-4"><RecordPaymentForm leaseId={lease.id} balance={balance} /></div>
+          <div className="mb-4"><RecordPaymentForm leaseId={lease.id} balance={balance} bankAccounts={bankAccounts} /></div>
           <DataTable
             columns={[
               { key: 'date', label: 'Date', render: (r: Record<string, unknown>) => formatDate(r.date as Date) },

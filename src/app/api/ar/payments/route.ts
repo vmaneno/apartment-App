@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const data = await req.json()
-  if (!data.leaseId || !data.amount || !data.date || !data.method) {
+  if (!data.leaseId || !data.bankAccountId || !data.amount || !data.date || !data.method) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     const payment = await recordPayment({
       organizationId: session.organizationId,
       leaseId: data.leaseId,
+      bankAccountId: data.bankAccountId,
       amount: parseFloat(data.amount),
       date: new Date(data.date),
       method: data.method,
