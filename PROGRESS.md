@@ -86,23 +86,48 @@ session can pick up without re-reading the whole brief or plan.
       `propertyId`-tagged (same technique as USHoa-App's `fund` tagging).
       Verified end-to-end: DR/CR balance to zero, correct `propertyId`,
       partial payment + overpayment rejection both behave correctly.
-- [x] Chart of Accounts — **seeded only, no setup UI yet**. 4 starter
-      accounts per organization (1000 Operating Cash, 1500 Rent
-      Receivable, 4000 Rental Income, 4100 Other Income) in
-      `prisma/seed.ts`. Rent charges credit 4000; every other charge type
-      credits 4100 — no per-type GL mapping UI. A real COA management
-      page (add/edit accounts, choose GL per charge type) is still open.
-- [ ] Bank account selection on payments — currently always posts to the
-      single seeded 1000 Operating Cash account; needs Bank Accounts setup
-      (below) before a payment can target a specific bank.
+- [x] Chart of Accounts management UI — `/admin/setup/chart-of-accounts`,
+      list/create/edit/delete. 4 starter accounts still seeded in
+      `prisma/seed.ts` (1000 Operating Cash, 1500 Rent Receivable, 4000
+      Rental Income, 4100 Other Income); Rent charges credit 4000, every
+      other charge type credits 4100 — still no per-charge-type GL
+      *mapping* UI (that's a bigger feature: letting each LeaseCharge
+      type choose its own income account, not just Rent-vs-everything-else).
+- [x] Bank Accounts setup — `/admin/setup/bank-accounts`. Schema fix:
+      `BankAccount.glNumber` (a loose string) became `glAccountId` (a
+      real FK to `ChartOfAccount`, same pattern as `TransactionLine`).
+      Property picker, Asset-type GL Account picker.
+- [x] Bank account selection on payments — `recordPayment()` now requires
+      a `bankAccountId` and debits that account's real `glAccountId`
+      instead of a hardcoded GL number. Record Payment form has a
+      "Deposit To" picker scoped to the lease's property.
+- [x] Bank Reconciliation (simple/manual) —
+      `/admin/setup/bank-accounts/[id]/reconcile`: checkboxes toggle each
+      `TransactionLine.cleared` (auto-saves), statement date/balance
+      entered client-side (not persisted), shows cleared balance vs.
+      statement balance difference. No statement import or
+      auto-matching — that's a separate, bigger feature if ever needed.
+- [x] Income Statement & Balance Sheet — `/admin/reports/income-statement`,
+      `/admin/reports/balance-sheet`. Property filter (or consolidated),
+      grouped by `ChartOfAccount`/glType, NOI = Income − Expense on the
+      Income Statement, normal-balance-sign Assets/Liabilities/Equity on
+      the Balance Sheet. Expense/Liability/Equity sections correctly
+      render empty (with an explanatory note) since nothing posts to
+      those account types yet — no AP/vendor-bill engine exists.
+- [x] Work Orders UI — `/admin/ops/work-orders` (new `admin/ops/` route
+      prefix). Property + optional Unit picker, priority, status
+      (Open → Assigned → InProgress → Completed, `completedAt`
+      auto-stamped/cleared on transition), optional assigned Vendor.
+      Needed a minimal Vendor setup page first (`/admin/setup/vendors`:
+      name, trade, email, phone, COI expiration with an expired-badge,
+      W-9 on file) since Work Orders reference Vendor.
 - [ ] Period-close protection — no `closedThrough`-style field exists on
       Organization/Property yet (HOA app's `assertPeriodOpen` has no
       equivalent here).
 - [ ] Rent Roll "Balance" column — natural follow-up now that charges/
-      payments exist; not added this pass.
-- [ ] Income Statement & Balance Sheet, per property
-- [ ] Bank accounts setup + basic reconciliation
-- [ ] Work order tracking UI (schema exists, no pages yet)
+      payments exist; not added yet.
+- [ ] Prepaid credit / overpayment handling — still rejected outright,
+      no liability account for it yet.
 
 ## Phase 2 / Phase 3 (design brief §6)
 
@@ -123,10 +148,22 @@ script that connects directly (e.g. a future one-off migration/backfill
 script) or it will silently read/write `public.*` instead of
 `apartment_pm.*`.
 
+## Phase 1 status
+
+All of the design brief's Phase 1 MVP checklist is now built (see items
+above) except: period-close protection and prepaid-credit/overpayment
+handling (both deliberately deferred, tracked above), and Rent Roll's
+balance column. Phase 2/3 (below) is unstarted. Next natural step is
+probably AP/vendor-bill posting, since that's what would populate the
+Expense side of the Income Statement and give Work Orders a cost.
+
 ## Test data currently in the DB
 
-Sample Property ("Maple Ridge Apartments") + Unit 101, an Owner
-("Riverside Capital LLC", assigned 60% on that property), a Tenant
-("Jane Doe"), and an Active Lease on Unit 101 for that tenant — all
-created during end-to-end verification. Safe to delete once real data
-entry starts.
+Sample Property ("Maple Ridge Apartments (Renamed)") with Units 101/102,
+an Owner ("Riverside Capital LLC"), Tenants (including "Jane A. Doe"),
+two Leases with posted Rent charges ($1,650 + $1,400) and partial
+payments ($1,000 + $200 against Unit 101's original lease), a Bank
+Account ("Operating Checking"), a Vendor ("Acme Plumbing", COI
+intentionally expired to test the badge), and a Work Order — all
+created during end-to-end verification across this app's build passes.
+Safe to delete once real data entry starts.
