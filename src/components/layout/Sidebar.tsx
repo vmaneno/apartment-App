@@ -46,7 +46,7 @@ export function Sidebar({ userName }: { userName: string }) {
       <div className="px-4 py-5">
         <p className="font-bold text-sm" style={{ color: 'var(--sidebar-text)' }}>Apartment Mgmt</p>
       </div>
-      <nav className="flex-1 px-2 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
         {navItems.map(item => {
           const active = pathname === item.href
           return (
