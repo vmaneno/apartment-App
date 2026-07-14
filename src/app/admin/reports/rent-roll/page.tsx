@@ -32,7 +32,11 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
         property: true,
         leases: {
           where: { status: 'Active' },
-          include: { leaseTenants: { include: { tenant: true } } },
+          include: {
+            leaseTenants: { include: { tenant: true } },
+            leaseCharges: true,
+            payments: true,
+          },
         },
       },
       orderBy: [{ property: { name: 'asc' } }, { unitNumber: 'asc' }],
@@ -42,6 +46,8 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
   const rows = units
     .map(u => {
       const lease = u.leases[0] ?? null
+      const totalCharged = lease ? lease.leaseCharges.reduce((s, c) => s + c.amount, 0) : 0
+      const totalPaid = lease ? lease.payments.reduce((s, p) => s + p.amount, 0) : 0
       return {
         id: u.id,
         propertyId: u.propertyId,
@@ -55,6 +61,7 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
         rentAmount: lease ? lease.rentAmount : null,
         startDate: lease ? lease.startDate : null,
         endDate: lease ? lease.endDate : null,
+        balance: lease ? Math.round((totalCharged - totalPaid) * 100) / 100 : null,
       }
     })
     .filter(r => selectedStatus === 'all' || (selectedStatus === 'occupied' ? r.occupied : !r.occupied))
@@ -64,6 +71,7 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
   const occupancyPct = rows.length > 0 ? Math.round((occupiedCount / rows.length) * 100) : 0
   const totalActualRent = rows.reduce((s, r) => s + (r.rentAmount ?? 0), 0)
   const totalMarketRent = rows.reduce((s, r) => s + (r.marketRent ?? 0), 0)
+  const totalBalance = rows.reduce((s, r) => s + (r.balance ?? 0), 0)
 
   const cards = [
     { label: 'Total Units', value: String(rows.length) },
@@ -72,12 +80,13 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
     { label: 'Occupancy', value: `${occupancyPct}%` },
     { label: 'Actual Rent', value: formatCurrency(totalActualRent) },
     { label: 'Market Rent', value: formatCurrency(totalMarketRent) },
+    { label: 'Balance Owed', value: formatCurrency(totalBalance) },
   ]
 
   return (
     <div>
       <PageHeader title="Rent Roll" subtitle="Current occupancy status of every unit" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
         {cards.map(c => (
           <div key={c.label} className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{c.label}</p>
@@ -104,6 +113,11 @@ export default async function RentRollPage({ searchParams }: { searchParams: Sea
           { key: 'rentAmount', label: 'Actual Rent', align: 'right' as const, render: (r: Record<string, unknown>) => r.rentAmount ? formatCurrency(r.rentAmount as number) : '—' },
           { key: 'startDate', label: 'Lease Start', render: (r: Record<string, unknown>) => r.startDate ? formatDate(r.startDate as Date) : '—' },
           { key: 'endDate', label: 'Lease End', render: (r: Record<string, unknown>) => r.endDate ? formatDate(r.endDate as Date) : '—' },
+          { key: 'balance', label: 'Balance', align: 'right' as const, render: (r: Record<string, unknown>) => {
+            const bal = r.balance as number | null
+            if (bal === null) return '—'
+            return <span style={{ color: bal > 0 ? '#d4a017' : 'var(--text-primary)' }}>{formatCurrency(bal)}</span>
+          } },
         ]}
         data={rows as unknown as Record<string, unknown>[]}
         emptyMessage="No units match these filters."

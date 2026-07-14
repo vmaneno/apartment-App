@@ -39,7 +39,13 @@ export default async function TenantsPage({ searchParams }: { searchParams: Sear
   const rows = tenants.map(t => {
     const activeLt = t.leaseTenants.find(lt => lt.lease.status === 'Active')
     return {
-      ...t,
+      id: t.id,
+      name: t.name,
+      email: t.email,
+      phone: t.phone,
+      // Never spread the full tenant record here — `t.password` is a bcrypt hash and this row
+      // is serialized straight to the client component below. Only a boolean crosses the wire.
+      portalEnabled: !!t.password,
       activeLeaseLabel: activeLt ? `${activeLt.lease.unit.property.name} — Unit ${activeLt.lease.unit.unitNumber}` : null,
       activeUnitId: activeLt ? activeLt.lease.unitId : null,
     }
@@ -58,6 +64,11 @@ export default async function TenantsPage({ searchParams }: { searchParams: Sear
           { key: 'email', label: 'Email', render: (r: Record<string, unknown>) => (r.email as string | null) ?? '—' },
           { key: 'phone', label: 'Phone', render: (r: Record<string, unknown>) => (r.phone as string | null) ?? '—' },
           { key: 'activeLeaseLabel', label: 'Active Lease', render: (r: Record<string, unknown>) => (r.activeLeaseLabel as string | null) ?? '—' },
+          { key: 'portalEnabled', label: 'Portal', align: 'center' as const, render: (r: Record<string, unknown>) => (
+            r.portalEnabled
+              ? <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#10a06a22', color: '#10a06a' }}>Enabled</span>
+              : <span style={{ color: 'var(--text-muted)' }}>—</span>
+          ) },
           { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
             <TenantRowActions
               tenant={r as unknown as Parameters<typeof TenantRowActions>[0]['tenant']}

@@ -140,15 +140,31 @@ session can pick up without re-reading the whole brief or plan.
       tags the AP GL line with whichever property carries the largest
       share of that payment (per-property Balance Sheet has no natural
       home for a split AP line otherwise).
-- [ ] Period-close protection — no `closedThrough`-style field exists on
-      Organization/Property yet (HOA app's `assertPeriodOpen` has no
-      equivalent here).
-- [ ] Rent Roll "Balance" column — natural follow-up now that charges/
-      payments exist; not added yet.
-- [ ] Prepaid credit / overpayment handling — still rejected outright on
-      both AR and AP sides, no liability/asset account modeled for it yet.
-- [ ] Vendor 1099 report — `Vendor.w9OnFile` exists but nothing sums
-      payments toward the $600 threshold yet; that's Phase 2/3.
+- [x] Period-close protection — see Phase 2 checklist below (implemented
+      there; this line was stale).
+- [x] Rent Roll "Balance" column — `/admin/reports/rent-roll` now includes
+      each occupied unit's active lease `leaseCharges`/`payments` and shows
+      the same `totalCharged − totalPaid` balance as the Leases page
+      (amber if owed, normal color if zero/credit), plus a "Balance Owed"
+      summary card (sum across rows). Vacant units show `—`. Verified via
+      curl against the running dev server with the seeded admin session:
+      existing test data renders Unit 101 at $450.00 owed (amber) and Unit
+      102 at -$20.00 (its prepaid-credit test data, not flagged amber since
+      it's not owed), summing to a $430.00 Balance Owed card.
+- [x] Prepaid credit / overpayment handling — see Phase 2 checklist below
+      (implemented there; this line was stale).
+- [x] Vendor 1099 report — `/admin/reports/1099s`: Year selector (defaults
+      to current year, last 5 years offered), sums each active vendor's
+      `VendorPayment.amount` within that calendar year, flags vendors
+      meeting the $600 threshold and cross-references `Vendor.w9OnFile`
+      (red "No" badge if a reportable vendor has no W-9 on file, plus a
+      banner). Summary cards: paid-vendor count, threshold-meeting count,
+      missing-W-9 count, total paid. Deliberately no TIN/address fields or
+      actual form generation — `Vendor` has no such fields yet, this is a
+      bookkeeping aid to identify who needs a 1099, not a filing tool.
+      Verified via curl against the running dev server: 2026 correctly
+      shows Acme Plumbing at $600.00 (Yes/Yes), 2025 correctly shows the
+      empty state.
 
 ## Phase 2 (design brief §6) — in progress
 
@@ -207,10 +223,195 @@ session can pick up without re-reading the whole brief or plan.
       (`session.role !== 'admin'` is checked both client-side, for the
       inline "Admins only" message, and server-side in the PATCH route —
       never trust the client-side gate alone).
-- [ ] Vendor 1099s, budgeting, document storage, tenant self-service
-      portal, RUBS, inspections, preventive maintenance, applicant
-      screening — not started. Schema for `Budget`, `Document`,
-      `Inspection` intentionally not created yet.
+- [x] Vendor 1099 report — see Phase 1 checklist above (built alongside
+      Phase 2 items even though listed under Phase 1 in the design brief).
+- [x] Budgeting — new `Budget` model (one row per
+      `propertyId`/`glAccountId`/`year`/`month`, unique on that 4-tuple).
+      Setup UI: `/admin/setup/budget` (Property + Year picker, a
+      spreadsheet-style grid — Income/Expense GL accounts × 12 month
+      columns, editable, bulk-saved via `POST /api/setup/budget` which
+      upserts every cell in one `$transaction`). Report:
+      `/admin/reports/budget-vs-actual` (Property-or-consolidated + Year +
+      "through month" picker, defaults to YTD for the current year and
+      full-year for past years) sums `Budget` rows and actual
+      `TransactionLine` activity per GL account over the same range, same
+      Income/Expense grouping and signed-amount convention as the Income
+      Statement, with a Budget-vs-Actual NOI line. No budget-vs-actual
+      variance alerting/notifications — just the report. Verified via curl
+      against the running dev server: saved a real budget (Rental Income
+      $1,600×2 + Repairs $200×2 for Jan/Feb 2026 on Maple Ridge), confirmed
+      the grid reloads with those values pre-filled, and confirmed the
+      report shows Budget $3,200/$400 (Income/Expense), Actual $0 (no GL
+      postings for those accounts/months), Budget NOI $2,800.00.
+- [x] Document storage — new `Document` model, file content stored inline
+      as `Bytes` (Postgres row storage), not an object-storage bucket — no
+      Supabase Storage credentials exist in `.env` (only
+      `DATABASE_URL`/`DIRECT_URL`), so this avoids new infra while staying
+      deployable. 8MB/file cap enforced in the API. Every entity link
+      (`propertyId`/`unitId`/`leaseId`/`tenantId`/`vendorId`) is optional
+      and independently validated server-side against the caller's
+      `organizationId` before the row is created — without that check a
+      caller could attach (and later read, since the download route only
+      filters on `organizationId`) a document under another org's
+      lease/tenant/vendor id, an IDOR risk given how many FK-shaped form
+      fields this endpoint accepts. `POST /api/documents` (multipart
+      upload), `GET`/`DELETE /api/documents/[id]` (both org-scoped).
+      Top-level UI at `/admin/documents` (upload form with an optional
+      "Attach To" entity-type + entity picker, list with category filter,
+      download-by-click, delete). Also embedded directly on the Lease
+      detail page (`UploadDocumentForm`'s `presetLink` prop locks the
+      link to that lease) as the one proof-of-integration point — other
+      entity detail pages (Property/Unit/Tenant/Vendor) don't have an
+      inline widget yet, but can still receive documents via the
+      top-level page's picker. Verified via curl against the running dev
+      server: uploaded an unlinked doc and a lease-linked doc, confirmed
+      byte-exact download, confirmed the lease-linked doc renders on both
+      the Lease detail page and the top-level list (correctly resolving
+      to "Lease — Jane A. Doe"), confirmed both an invalid category and a
+      nonexistent `leaseId` are rejected (400/404), then deleted both test
+      uploads via the delete API (no document left in the test-data set,
+      unlike other features' seeded samples).
+- [x] RUBS (Ratio Utility Billing) — `/admin/ar/rubs`: Property picker,
+      total utility bill amount, allocation method (by square footage /
+      by bedrooms / equal split), date, live client-side preview of each
+      active lease's share, posts on submit. No new model or ledger
+      logic — reuses `postLeaseCharge()` per lease with `chargeType:
+      'RUBS'` (posts to `4100 Other Income` like every non-Rent charge
+      type already does). New `src/lib/rubs.ts` holds the pure
+      allocation math (`rubsWeight`/`allocateRubs`), shared by the
+      client preview and the server route so they never disagree — but
+      **the server always recomputes from `propertyId`/`method`/
+      `totalAmount`**, never trusts client-submitted per-lease amounts
+      (same money-safety posture as every other posting endpoint in this
+      app). Rounding: proportional shares are rounded to the cent and
+      the last positive-weight lease absorbs any remainder, so the sum
+      always equals the entered bill exactly — verified by posting
+      $101.01 equal-split across 2 leases and confirming Income
+      Statement's `4100 Other Income` moved by exactly $101.01, not
+      $101.00/$101.02. "By Square Footage" correctly refuses to post
+      (400, clear error) when any active unit on the property has no
+      `sqft` set — verified against the test data (Unit 102 has no
+      sqft) rather than silently treating it as a 0-sqft (and thus
+      0-share) unit.
+- [x] Inspections — new `Inspection` model (Move-In/Move-Out/Routine/Turn,
+      Scheduled → Completed/Cancelled, `completedDate` auto-stamped/
+      cleared on transition — same pattern as `WorkOrder.completedAt`).
+      UI at `/admin/ops/inspections` is a near-exact copy of the Work
+      Orders page/form/row-actions (Property + optional Unit picker,
+      inline edit modal, delete-with-confirm). `Document` gained an
+      optional `inspectionId` link (photos/condition reports attach to
+      an inspection the same way a signed lease attaches to a `Lease`).
+      **Bug caught during verification, not shipped**: `inspectionId` was
+      added to the `Document` schema but the upload route's `LINK_FIELDS`
+      list and ownership-validation `Promise.all` weren't updated to
+      include it, so the field was silently dropped — a document
+      uploaded with `inspectionId` set would save with a `null` link and
+      no error. Caught by literally uploading a test doc with
+      `inspectionId` and checking the list page rendered "—" instead of
+      the inspection instead of just trusting the 201 response. Fixed in
+      `src/app/api/documents/route.ts` (added to `LINK_FIELDS` + the
+      validation array) and `src/app/admin/documents/page.tsx` (added
+      the `inspection` include + `linkedTo` resolution branch), then
+      re-verified the same upload now resolves to "Inspection — Maple
+      Ridge Apartments (Renamed) Unit 102 (Move-In)". Also confirmed a
+      nonexistent `inspectionId` is rejected (404), matching the other
+      link fields. `UploadDocumentForm`'s "Attach To" dropdown now
+      offers Inspection alongside the other five entity types.
+- [x] Applicant screening — new `Applicant` model (Applied → Screening →
+      Approved/Denied/Withdrawn, manually staff-set — no integration with
+      a background-check/credit provider, since this app has no
+      credentials for one). UI at `/admin/leasing/applicants` (new
+      `admin/leasing/` route prefix), same list/form/row-actions/filters
+      shape as Leases (Property + Status filters) and Work Orders/
+      Inspections (Property + optional Unit picker, inline edit modal).
+      `Document` gained an optional `applicantId` link (ID scans,
+      screening reports). This time the link was wired into
+      `LINK_LOOKUPS` correctly on the first try — refactored
+      `src/app/api/documents/route.ts` from three separately-maintained
+      places (a field list, a hardcoded `Promise.all`, a hardcoded
+      `if`-condition) to one `Record<string, (id, orgId) => Promise>`
+      config, specifically because the Inspection bug above showed that
+      three-places-in-sync pattern breaks silently. Verified via curl:
+      created an applicant, transitioned it to Screening, uploaded a
+      document with `applicantId` set and confirmed the Documents list
+      resolved it to "Applicant — Alex Rivera" without a second bug this
+      time, and confirmed a nonexistent `applicantId` is rejected (404).
+      No "convert Applicant to Tenant/Lease" automation — approving an
+      applicant still means manually creating the Tenant and Lease
+      records separately, same as today.
+- [x] Tenant self-service portal — a second, parallel auth system
+      alongside the staff `User`/`session` one:
+      - `Tenant.password` (nullable bcrypt hash — null means portal
+        access isn't set up). Admin-only "Portal Access" action on the
+        Tenants page (key icon in row actions) sets or clears it via a
+        dedicated `POST /api/setup/tenants/[id]/portal-access` route
+        (kept separate from the general tenant-edit PATCH route so a
+        routine name/email edit can never accidentally touch the
+        password field). **Caught during implementation, not shipped**:
+        the Tenants list page did `{ ...t, ... }` to build table rows,
+        which would have spread the raw bcrypt hash into props
+        serialized straight to the client the moment `password` was
+        added to the schema. Fixed by building the row explicitly
+        (`src/app/admin/setup/tenants/page.tsx`) and exposing only a
+        `portalEnabled` boolean — the lesson from the `inspectionId`
+        document-link bug earlier in this session (verify actual
+        behavior, don't assume a schema addition is inert elsewhere).
+      - `src/lib/tenantAuth.ts` mirrors `src/lib/auth.ts` (same JWT/
+        cookie/8h-expiry shape) but under a **different cookie name**
+        (`apt_tenant_session` vs `apt_session`) so a tenant and an admin
+        session coexist independently in the same browser. Login is by
+        `Tenant.email` + password (`POST /api/portal/auth/login`) — note
+        `Tenant.email` has no unique constraint, so two tenants sharing
+        an email in the same org is an unhandled edge case (login would
+        match whichever comes first); not fixed, flagged as a known gap.
+      - Portal UI under `/portal/*`: `/portal/login` (public),
+        `/portal/(app)/{dashboard,maintenance}` (route group whose
+        `layout.tsx` is the single session guard + topbar for every
+        authenticated portal page — mirrors how `admin/layout.tsx` guards
+        everything under `/admin`). Dashboard shows every lease the
+        tenant is on (`LeaseTenant` join, not just their most recent),
+        each with balance/charges/payments (same `totalCharged −
+        totalPaid` calc as the Leases/Rent-Roll pages) and any Documents
+        linked to that lease. Maintenance page lists the tenant's own
+        submitted requests and a submit form.
+      - `WorkOrder` gained `submittedByTenantId` (nullable FK) so a
+        portal-submitted request is distinguishable from a staff-created
+        one — the Work Orders admin page's new "Submitted By" column
+        shows "Name (portal)" vs "Staff". `POST /api/portal/work-orders`
+        derives `propertyId`/`unitId` from the tenant's own lease
+        server-side (never trusts a client-submitted property/unit) and
+        403s with "Lease not found" if the submitted `leaseId` isn't one
+        the calling tenant is actually on — verified by attempting a
+        cross-tenant submission and confirming it's rejected, then
+        re-confirming a lease that genuinely was the tenant's *previous*
+        (now-Ended) lease is correctly accepted, since ownership is
+        real, not just "currently Active."
+      - Document downloads for tenants go through a **separate** route,
+        `GET /api/portal/documents/[id]` (not the admin
+        `/api/documents/[id]`), because the authorization question is
+        different: "does this document belong to a lease this tenant is
+        on" vs. "does this document belong to the caller's org." Verified
+        a tenant can download a document on their own lease (200),
+        cannot download one on another tenant's lease (404, not a
+        silent org-wide document listing), and that the admin document
+        endpoint 403s a caller with only a tenant cookie.
+      - Verified full auth isolation: a tenant-only cookie hitting
+        `/admin/dashboard` redirects to `/login` (not the portal one),
+        and an admin-only cookie hitting `/portal/dashboard` redirects
+        to `/portal/login` — the two session systems don't leak into
+        each other's route trees.
+      - **Deliberately no online payment processing** — the dashboard
+        shows balance and payment *history* only, no "pay now" button.
+        No payment gateway (Stripe or otherwise) is configured for this
+        app, and building a fake-looking payment button would be
+        actively misleading rather than a real simplification.
+      - No applicant→tenant conversion, no "approve applicant → grant
+        portal access" automation — every step (create Tenant, create
+        Lease, grant portal access) is still a separate manual admin
+        action, consistent with how Applicant screening already works.
+- [ ] Preventive maintenance — not started (routine/scheduled maintenance
+      distinct from reactive Work Orders; Inspections cover condition
+      reports but not a recurring maintenance calendar).
 
 ## Known gotcha for future sessions
 
@@ -226,12 +427,13 @@ script) or it will silently read/write `public.*` instead of
 ## Phase 1 status
 
 All of the design brief's Phase 1 MVP checklist is now built (see items
-above), including AP/vendor-bill posting — both the AR and AP sides of the
-GL are live now, and period-close protection and prepaid-credit/overpayment
-handling (previously deferred) are both done too. What's left: Rent Roll's
-balance column. Phase 2 has picked up several items (security deposits,
-owner statements, management fee, owner distributions); the rest of
-Phase 2/3 is unstarted.
+above), including AP/vendor-bill posting, period-close protection,
+prepaid-credit/overpayment handling, and Rent Roll's balance column.
+Phase 1 is fully complete. Phase 2 has picked up every item except
+preventive maintenance (security deposits, owner statements, management
+fee, owner distributions, prepaid credit, period-close, 1099s,
+budgeting, document storage, RUBS, inspections, applicant screening,
+tenant self-service portal).
 
 ## Fixed in the security-deposit / owner-statements session
 
@@ -274,6 +476,16 @@ overpayment partially applied as prepaid credit), a Bank Account
 invoices, a payment, an overpayment, and a vendor-credit application, a
 security deposit on Unit 102's lease ($1,400 collected, then returned as
 $1,200 to tenant / $200 retained), a $50 test Owner Distribution to
-Riverside Capital LLC, and a Work Order — all created during end-to-end
-verification across this app's build passes. Safe to delete once real
-data entry starts.
+Riverside Capital LLC, a Work Order, a 2026 Budget on Maple Ridge (Rental
+Income $1,600/mo + Repairs & Maintenance $200/mo for Jan/Feb), a $101.01
+RUBS charge equal-split across both Maple Ridge leases ($50.51/$50.50)
+dated Jul 1, 2026, a completed Move-In Inspection on Unit 102, an
+Applicant ("Alex Rivera", status Screening, on Maple Ridge), tenant
+portal access enabled for Jane A. Doe (password `TenantPass123`, set
+during verification — real deployments should rotate/revoke this), and
+two tenant-submitted Work Orders from Jane's portal session ("Bathroom
+sink is clogged" and one on her old Unit 101 lease) — none of the
+Inspection/Applicant/lease documents used to verify document-linking
+were left attached, all were deleted after verification — all created
+during end-to-end verification across this app's build passes. Safe to
+delete once real data entry starts.

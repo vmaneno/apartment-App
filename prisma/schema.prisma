@@ -21,6 +21,10 @@ model Organization {
   tenants         Tenant[]
   vendors         Vendor[]
   chartOfAccounts ChartOfAccount[]
+  budgets         Budget[]
+  documents       Document[]
+  inspections     Inspection[]
+  applicants      Applicant[]
 }
 
 // Org staff login (admin/staff) — not a tenant or owner-portal login.
@@ -74,6 +78,10 @@ model Property {
   transactionLines    TransactionLine[]
   vendorInvoices      VendorInvoice[]
   ownerDistributions  OwnerDistribution[]
+  budgets             Budget[]
+  documents           Document[]
+  inspections         Inspection[]
+  applicants          Applicant[]
 }
 
 // Join: Property <-> Owner, with ownership % — supports co-owned properties.
@@ -110,8 +118,11 @@ model Unit {
   marketRent Float?
   active     Boolean  @default(true)
 
-  leases     Lease[]
-  workOrders WorkOrder[]
+  leases      Lease[]
+  workOrders  WorkOrder[]
+  documents   Document[]
+  inspections Inspection[]
+  applicants  Applicant[]
 
   @@unique([propertyId, unitNumber])
 }
@@ -123,10 +134,13 @@ model Tenant {
   name           String
   email          String?
   phone          String?
+  password       String? // bcrypt hash; null means the tenant portal isn't set up for this tenant yet
   active         Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
   leaseTenants LeaseTenant[]
+  documents    Document[]
+  submittedWorkOrders WorkOrder[]
 }
 
 model Lease {
@@ -144,6 +158,7 @@ model Lease {
   leaseCharges    LeaseCharge[]
   payments        Payment[]
   securityDeposit SecurityDeposit?
+  documents       Document[]
 }
 
 // Join: Lease <-> Tenant, for co-tenants.
@@ -205,6 +220,7 @@ model Vendor {
   workOrders      WorkOrder[]
   vendorInvoices  VendorInvoice[]
   vendorPayments  VendorPayment[]
+  documents       Document[]
 }
 
 // AP mirror of LeaseCharge — one invoice, one Expense GL line.
@@ -259,6 +275,8 @@ model WorkOrder {
   status           String    @default("Open") // 'Open' | 'Assigned' | 'InProgress' | 'Completed'
   assignedVendorId String?
   assignedVendor   Vendor?   @relation(fields: [assignedVendorId], references: [id])
+  submittedByTenantId String?
+  submittedByTenant   Tenant? @relation(fields: [submittedByTenantId], references: [id])
   createdAt        DateTime  @default(now())
   completedAt      DateTime?
 }
@@ -321,6 +339,7 @@ model ChartOfAccount {
   lines          TransactionLine[]
   bankAccounts   BankAccount[]
   vendorInvoices VendorInvoice[]
+  budgets        Budget[]
 
   @@unique([organizationId, glNumber])
 }
@@ -354,4 +373,100 @@ model TransactionLine {
   description   String?
   cleared       Boolean        @default(false)
   clearedAt     DateTime?
+}
+
+// One row per property/GL-account/month — the monthly budgeted amount, compared against
+// actual TransactionLine activity by the Budget vs. Actual report. Only meaningful for
+// Income/Expense glAccounts, but not restricted at the schema level (mirrors how LeaseCharge
+// doesn't restrict its glAccount type either).
+model Budget {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property       @relation(fields: [propertyId], references: [id])
+  glAccountId    String
+  glAccount      ChartOfAccount @relation(fields: [glAccountId], references: [id])
+  year           Int
+  month          Int // 1-12
+  amount         Float          @default(0)
+
+  @@unique([propertyId, glAccountId, year, month])
+}
+
+// File content lives in the row (`content Bytes`) rather than an object-storage bucket — no
+// Supabase Storage credentials are configured for this app yet (only DATABASE_URL/DIRECT_URL),
+// and this keeps the feature deployable without new infra. Revisit if files grow large/numerous
+// enough that Postgres row storage becomes the bottleneck. Every link field is optional — a
+// document can be unattached (general org file) or attached to exactly the entities it's
+// relevant to (e.g. a signed lease PDF sets leaseId, a vendor's W-9 sets vendorId).
+model Document {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  fileName       String
+  mimeType       String
+  size           Int
+  content        Bytes
+  category       String // 'Lease' | 'W9' | 'COI' | 'Inspection' | 'ID' | 'Other'
+  propertyId     String?
+  property       Property? @relation(fields: [propertyId], references: [id])
+  unitId         String?
+  unit           Unit?     @relation(fields: [unitId], references: [id])
+  leaseId        String?
+  lease          Lease?    @relation(fields: [leaseId], references: [id])
+  tenantId       String?
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id])
+  vendorId       String?
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
+  inspectionId   String?
+  inspection     Inspection? @relation(fields: [inspectionId], references: [id])
+  applicantId    String?
+  applicant      Applicant? @relation(fields: [applicantId], references: [id])
+  uploadedAt     DateTime  @default(now())
+}
+
+// Move-in/move-out condition reports and routine/turn walkthroughs. Deliberately no structured
+// checklist/scoring — just header fields + free-text notes + attached Documents (photos), same
+// minimal shape as WorkOrder before it grew any richer.
+model Inspection {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id])
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id])
+  type           String       @default("Routine") // 'Move-In' | 'Move-Out' | 'Routine' | 'Turn'
+  status         String       @default("Scheduled") // 'Scheduled' | 'Completed' | 'Cancelled'
+  scheduledDate  DateTime
+  completedDate  DateTime?
+  inspectorName  String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  documents Document[]
+}
+
+// Prospective-tenant tracking (application → screening → decision). No integration with a
+// third-party background-check/credit provider — this app has no credentials for one, so
+// `status` and `notes` are set manually by staff, same as every other manual-decision field
+// in this codebase (e.g. Vendor.w9OnFile).
+model Applicant {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  propertyId      String
+  property        Property     @relation(fields: [propertyId], references: [id])
+  unitId          String?
+  unit            Unit?        @relation(fields: [unitId], references: [id])
+  name            String
+  email           String?
+  phone           String?
+  status          String       @default("Applied") // 'Applied' | 'Screening' | 'Approved' | 'Denied' | 'Withdrawn'
+  applicationDate DateTime     @default(now())
+  notes           String?
+  createdAt       DateTime     @default(now())
+
+  documents Document[]
 }

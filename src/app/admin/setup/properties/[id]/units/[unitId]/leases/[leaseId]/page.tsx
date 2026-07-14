@@ -10,6 +10,8 @@ import { RecordPaymentForm } from './RecordPaymentForm'
 import { CollectDepositForm } from './CollectDepositForm'
 import { ReturnDepositForm } from './ReturnDepositForm'
 import { ApplyCreditForm } from './ApplyCreditForm'
+import { UploadDocumentForm } from '@/app/admin/documents/UploadDocumentForm'
+import { DocumentRowActions } from '@/app/admin/documents/DocumentRowActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +28,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
       leaseCharges: { include: { paymentApplications: true }, orderBy: { date: 'asc' } },
       payments: { include: { paymentApplications: true }, orderBy: { date: 'asc' } },
       securityDeposit: { include: { bankAccount: true } },
+      documents: { orderBy: { uploadedAt: 'desc' } },
     },
   })
   if (!lease) notFound()
@@ -140,6 +143,33 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
                 {formatCurrency(lease.securityDeposit.returnedToTenant ?? 0)} to tenant, {formatCurrency(lease.securityDeposit.retained ?? 0)} retained — {formatDate(lease.securityDeposit.returnedDate)}
               </p>
             )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Documents</h2>
+        <div className="mb-4">
+          <UploadDocumentForm
+            properties={[]} units={[]} leases={[]} tenants={[]} vendors={[]}
+            presetLink={{ field: 'leaseId', id: lease.id, label: lease.leaseTenants.map(lt => lt.tenant.name).join(', ') || `Unit ${lease.unit.unitNumber}` }}
+          />
+        </div>
+        {lease.documents.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No documents yet.</p>
+        ) : (
+          <div className="rounded-xl overflow-hidden shadow-sm" style={{ border: '1px solid var(--border)' }}>
+            {lease.documents.map((d, i) => (
+              <div key={d.id} className="flex items-center justify-between px-4 py-2.5 text-sm" style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'transparent', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                <a href={`/api/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--accent)' }}>
+                  {d.fileName}
+                </a>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{d.category} · {formatDate(d.uploadedAt)}</span>
+                  <DocumentRowActions id={d.id} fileName={d.fileName} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

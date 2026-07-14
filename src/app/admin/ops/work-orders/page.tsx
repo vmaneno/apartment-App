@@ -16,7 +16,7 @@ export default async function WorkOrdersPage() {
   const [workOrders, properties, units, vendors] = await Promise.all([
     prisma.workOrder.findMany({
       where: { property: { organizationId: session.organizationId, active: true } },
-      include: { property: true, unit: true, assignedVendor: true },
+      include: { property: true, unit: true, assignedVendor: true, submittedByTenant: true },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     }),
     prisma.property.findMany({
@@ -61,6 +61,10 @@ export default async function WorkOrdersPage() {
             return <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${color}22`, color }}>{s}</span>
           } },
           { key: 'assignedVendor', label: 'Vendor', render: (r: Record<string, unknown>) => (r.assignedVendor as { name: string } | null)?.name ?? '—' },
+          { key: 'submittedBy', label: 'Submitted By', render: (r: Record<string, unknown>) => {
+            const tenant = r.submittedByTenant as { name: string } | null
+            return tenant ? <span style={{ color: 'var(--accent)' }}>{tenant.name} (portal)</span> : <span style={{ color: 'var(--text-muted)' }}>Staff</span>
+          } },
           { key: 'completedAt', label: 'Completed', render: (r: Record<string, unknown>) => r.completedAt ? formatDate(r.completedAt as Date) : '—' },
           { key: 'actions', label: 'Actions', align: 'center' as const, render: (r: Record<string, unknown>) => (
             <WorkOrderRowActions
