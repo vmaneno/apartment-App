@@ -631,6 +631,34 @@ script that connects directly (e.g. a future one-off migration/backfill
 script) or it will silently read/write `public.*` instead of
 `apartment_pm.*`.
 
+## Cross-report browser verification (all 11 reports)
+
+After building the five §5 report gaps above, did a single consolidated
+pass over every report page in a real browser (Playwright, headless
+Chromium, logged in as `admin`) rather than trusting each report's
+individual curl/DB-script verification in isolation: Rent Roll, AR
+Aging, Occupancy & Vacancy, Income Statement, NOI & Cap Rate, Balance
+Sheet, Budget vs. Actual, Owner Statements, 1099 Vendors, Trust
+Reconciliation, Work Order Aging. Screenshotted each; all 11 render
+correctly with real seeded data, no blank pages, no visible error
+dialogs. Balance Sheet shows a small pre-existing $10 Assets-vs-
+Liabilities+Equity imbalance, but that page already self-flags it in
+amber and explains why (no period-close/retained-earnings roll-up) —
+not a regression from any of the new reports, not fixed here.
+
+**Gotcha caught in the verification tooling itself, not the app**: the
+first automated pass checked for a Next.js dev error overlay by testing
+whether `nextjs-portal` (or `[data-nextjs-dialog-overlay]`) exists in
+the DOM, and flagged all 11 pages as broken. False positive —
+`nextjs-portal` is an always-present empty custom-element host in dev
+mode (used for various dev-tool bridges), not exclusively the error
+overlay, so its mere presence proves nothing. Only a screenshot (or
+checking the overlay is actually *visible*/non-empty, not just present
+in the DOM) tells you whether an error is really showing. Worth
+remembering alongside the RSC-payload-duplication and UTC-date gotchas
+above: this app's dev-mode HTML has more than one trap for automated
+"is this page broken" checks — screenshot and look, don't just grep/query-select.
+
 ## Phase 1 status
 
 All of the design brief's Phase 1 MVP checklist is now built (see items
