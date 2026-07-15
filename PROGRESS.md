@@ -507,13 +507,53 @@ tracked in this file).
       $3,177.98, Annualized NOI $5,918.18, Cap Rate 0.62% for Maple Ridge
       YTD. Also confirmed via `npm run build` that `/admin/reports/noi`
       compiles with no type errors.
-- [ ] Trust account reconciliation report — the brief calls this out as
-      "the report that keeps you out of trouble": proving trust bank
-      balance == sum of outstanding `SecurityDeposit` liability. Only
-      generic per-account bank reconciliation exists
-      (`/admin/setup/bank-accounts/[id]/reconcile`); nothing cross-checks
-      a Security-Deposit-Trust account's cleared balance against open
-      `SecurityDeposit` rows.
+- [x] Trust account reconciliation report — `/admin/reports/trust-
+      reconciliation`. Property + "As of" date filters (same pattern as
+      Balance Sheet/AR Aging). For every active `SecurityDepositTrust`
+      bank account: **Cash (books)** = the sum of `debit − credit` on
+      that account's own `glAccountId` (each trust `BankAccount` has its
+      own dedicated 1:1 GL account, e.g. "1600 Security Deposit Trust
+      Cash" in the seed data, so this is exactly that account's ledger
+      balance — no separate per-account balance field needed).
+      **Open Liability** = sum of `SecurityDeposit.amount` for deposits
+      collected on/before the as-of date that haven't been returned yet
+      (money still owed back to a current tenant). Expected Balance =
+      Open Liability + **Retained, Not Yet Swept** — this second term is
+      the important nuance the naive version of this report would get
+      wrong: `returnSecurityDeposit()` (see Phase-2 checklist above)
+      recognizes a retained portion as `4100 Other Income` but has no
+      bank-to-bank transfer mechanic, so that cash physically stays in
+      the trust account's GL balance after the deposit is marked
+      returned. Treating Expected Balance as just "Open Liability" would
+      make every trust account with a retained deposit look permanently
+      $200-ish out of reconciliation, which is a known/intentional gap,
+      not a bug — so the report explains and includes it rather than
+      flagging it red. A genuine discrepancy (Difference ≠ $0, e.g. from
+      a stray manual posting to the trust GL) still shows up correctly
+      as a red "Discrepancy found" badge instead of being masked.
+      Verified three ways against the seeded dev DB: (1) an independent
+      script (deleted after use) recomputed the same figures directly
+      from `TransactionLine`/`SecurityDeposit` rows and matched the
+      rendered page exactly (Cash $200.00, Open Liability $0.00,
+      Retained-Not-Swept $200.00, Difference $0.00, "All trust accounts
+      reconciled"); (2) posted a deliberate $50 out-of-band transaction
+      to the trust GL and confirmed the page correctly flipped to a red
+      "Discrepancy found" badge showing Difference **-$50.00** (had to
+      re-grep with a regex that allows the minus sign *before* the `$`,
+      since `Intl.NumberFormat`'s en-US currency format puts it there,
+      not after — an easy way to silently mis-verify a negative-amount
+      report); (3) deleted that test transaction and re-confirmed the
+      page returned to "All trust accounts reconciled." Also confirmed
+      via `npm run build` that `/admin/reports/trust-reconciliation`
+      compiles with no type errors. **Known scope limit, not fixed
+      here**: the brief's "pooled trust account" case (one bank account
+      shared across several Owners/Properties, reconciled via
+      per-Owner/Property sub-ledgers) isn't representable in the current
+      schema — `BankAccount.propertyId` is a required single FK, so
+      every trust account in this app already belongs to exactly one
+      property and is trivially its own sub-ledger. Building actual
+      pooling would need `BankAccount` to drop that single-property
+      constraint, which is a schema change beyond "build the report."
 - [ ] Work order aging/completion-time report — `WorkOrder` has the dates
       needed (`createdAt`, `completedAt`) but no report surfaces
       open-order age or average time-to-complete.

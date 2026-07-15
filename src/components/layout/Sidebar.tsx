@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen, Percent } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen, Percent, ShieldCheck } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -21,6 +21,7 @@ const navItems = [
   { label: 'Occupancy & Vacancy', href: '/admin/reports/occupancy', icon: <DoorOpen size={16} /> },
   { label: 'Chart of Accounts', href: '/admin/setup/chart-of-accounts', icon: <BookOpen size={16} /> },
   { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },
+  { label: 'Trust Reconciliation', href: '/admin/reports/trust-reconciliation', icon: <ShieldCheck size={16} /> },
   { label: 'Budget', href: '/admin/setup/budget', icon: <PiggyBank size={16} /> },
   { label: 'Income Statement', href: '/admin/reports/income-statement', icon: <TrendingUp size={16} /> },
   { label: 'NOI & Cap Rate', href: '/admin/reports/noi', icon: <Percent size={16} /> },
