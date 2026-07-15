@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -18,6 +18,7 @@ const navItems = [
   { label: 'AP Invoices', href: '/admin/ap/invoices', icon: <FileText size={16} /> },
   { label: 'Rent Roll', href: '/admin/reports/rent-roll', icon: <ClipboardList size={16} /> },
   { label: 'AR Aging', href: '/admin/reports/ar-aging', icon: <AlertTriangle size={16} /> },
+  { label: 'Occupancy & Vacancy', href: '/admin/reports/occupancy', icon: <DoorOpen size={16} /> },
   { label: 'Chart of Accounts', href: '/admin/setup/chart-of-accounts', icon: <BookOpen size={16} /> },
   { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },
   { label: 'Budget', href: '/admin/setup/budget', icon: <PiggyBank size={16} /> },

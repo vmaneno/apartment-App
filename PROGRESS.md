@@ -436,9 +436,32 @@ tracked in this file).
       duplicates the RSC payload in the raw SSR response, so don't trust
       a raw-HTML grep for this app's report pages; query the DB directly
       or read the rendered page in an actual browser instead.
-- [ ] Occupancy & vacancy report, days-to-lease — Rent Roll shows a
-      point-in-time occupancy %, but nothing tracks vacancy duration per
-      unit or days-to-lease as a KPI.
+- [x] Occupancy & vacancy report, days-to-lease — `/admin/reports/occupancy`.
+      Property + Status filters (same shape as Rent Roll). Unlike Rent
+      Roll's `status === 'Active'` check, occupancy here is date-precise:
+      a unit counts as occupied only if some lease's `startDate <= today
+      <= endDate` (or `endDate` is null), computed against every lease on
+      the unit regardless of its `status` field — needed because
+      "Vacant Since" / "Days Vacant" require real date arithmetic, and a
+      `status: 'Active'` lease can still be future-dated (e.g. signed
+      ahead of a move-in date), in which case the unit is genuinely
+      vacant *today* even though Rent Roll would call it occupied. **This
+      is a deliberate, documented divergence from Rent Roll, not a bug**
+      — the two reports can legitimately disagree on a unit with a
+      future-dated Active lease. Second table, "Turnover History": walks
+      every unit's full lease history (independent of the Status filter)
+      and lists every vacated→re-leased gap with its day count; the
+      "Avg Days to Re-Lease" summary card is the average of that table.
+      Verified against the seeded dev DB via a one-off script (deleted
+      after use) replicating the exact occupied/vacantSince/turnover
+      logic: confirmed both Maple Ridge units currently read as vacant
+      because both units' only leases are startDate-2026-09-01 (future-
+      dated test data) despite `status: 'Active'`, and confirmed the one
+      historical turnover on Unit 101 (Ended lease endDate 2026-09-01 →
+      Active lease startDate 2026-09-01, same day) computes a 0-day gap
+      correctly. Also checked the dev server log for the route — no
+      runtime errors, and `npm run build` includes
+      `/admin/reports/occupancy` with no type errors.
 - [ ] NOI report (and Cap Rate) — NOI is computed inline on the Income
       Statement (Income − Expense), matching the brief's definition, but
       there's no dedicated NOI report and no Cap Rate calc. `Property` has
