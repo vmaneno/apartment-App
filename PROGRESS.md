@@ -413,6 +413,33 @@ session can pick up without re-reading the whole brief or plan.
       distinct from reactive Work Orders; Inspections cover condition
       reports but not a recurring maintenance calendar).
 
+## Known gaps — design brief §5 Reporting
+
+Found via an audit against the brief's Reporting module list (not previously
+tracked in this file). Four of the eight listed reports don't exist yet:
+
+- [ ] AR aging / delinquency report — Rent Roll and the Lease detail page
+      show a lease's current balance, but there's no aging-bucket view
+      (30/60/90+ days past due) across the portfolio.
+- [ ] Occupancy & vacancy report, days-to-lease — Rent Roll shows a
+      point-in-time occupancy %, but nothing tracks vacancy duration per
+      unit or days-to-lease as a KPI.
+- [ ] NOI report (and Cap Rate) — NOI is computed inline on the Income
+      Statement (Income − Expense), matching the brief's definition, but
+      there's no dedicated NOI report and no Cap Rate calc. `Property` has
+      no `propertyValue` field, so Cap Rate (NOI ÷ Property Value) can't be
+      computed without a schema change first.
+- [ ] Trust account reconciliation report — the brief calls this out as
+      "the report that keeps you out of trouble": proving trust bank
+      balance == sum of outstanding `SecurityDeposit` liability. Only
+      generic per-account bank reconciliation exists
+      (`/admin/setup/bank-accounts/[id]/reconcile`); nothing cross-checks
+      a Security-Deposit-Trust account's cleared balance against open
+      `SecurityDeposit` rows.
+- [ ] Work order aging/completion-time report — `WorkOrder` has the dates
+      needed (`createdAt`, `completedAt`) but no report surfaces
+      open-order age or average time-to-complete.
+
 ## Known gotcha for future sessions
 
 `@prisma/adapter-pg` does **not** honor a `?schema=` query param on the
