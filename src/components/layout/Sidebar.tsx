@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen, Percent } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -23,6 +23,7 @@ const navItems = [
   { label: 'Bank Accounts', href: '/admin/setup/bank-accounts', icon: <Landmark size={16} /> },
   { label: 'Budget', href: '/admin/setup/budget', icon: <PiggyBank size={16} /> },
   { label: 'Income Statement', href: '/admin/reports/income-statement', icon: <TrendingUp size={16} /> },
+  { label: 'NOI & Cap Rate', href: '/admin/reports/noi', icon: <Percent size={16} /> },
   { label: 'Balance Sheet', href: '/admin/reports/balance-sheet', icon: <Scale size={16} /> },
   { label: 'Budget vs. Actual', href: '/admin/reports/budget-vs-actual', icon: <BarChart3 size={16} /> },
   { label: 'Owner Statements', href: '/admin/reports/owner-statements', icon: <FileSpreadsheet size={16} /> },

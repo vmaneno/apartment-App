@@ -9,6 +9,7 @@ import { UnitForm } from './UnitForm'
 import { UnitRowActions } from './UnitRowActions'
 import { PropertyOwnerForm } from './PropertyOwnerForm'
 import { ManagementFeeForm } from './ManagementFeeForm'
+import { PropertyValueForm } from './PropertyValueForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       <div className="rounded-xl p-5 mb-6" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
         <h2 className="font-semibold mb-3 text-sm" style={{ color: 'var(--text-primary)' }}>Management Fee</h2>
         <ManagementFeeForm propertyId={property.id} feePercent={property.managementAgreement?.feePercent ?? 0} />
+      </div>
+
+      <div className="rounded-xl p-5 mb-6" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <h2 className="font-semibold mb-3 text-sm" style={{ color: 'var(--text-primary)' }}>Property Value</h2>
+        <PropertyValueForm propertyId={property.id} propertyValue={property.propertyValue} />
       </div>
 
       <div className="mb-6"><UnitForm propertyId={property.id} /></div>

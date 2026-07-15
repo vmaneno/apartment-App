@@ -462,11 +462,51 @@ tracked in this file).
       correctly. Also checked the dev server log for the route — no
       runtime errors, and `npm run build` includes
       `/admin/reports/occupancy` with no type errors.
-- [ ] NOI report (and Cap Rate) — NOI is computed inline on the Income
-      Statement (Income − Expense), matching the brief's definition, but
-      there's no dedicated NOI report and no Cap Rate calc. `Property` has
-      no `propertyValue` field, so Cap Rate (NOI ÷ Property Value) can't be
-      computed without a schema change first.
+- [x] NOI report (and Cap Rate) — `/admin/reports/noi`. Added
+      `Property.propertyValue` (nullable `Float`, migration
+      `20260715033357_add_property_value`) with its own inline-edit
+      control on the Property detail page (`PropertyValueForm.tsx` +
+      `PATCH /api/setup/properties/[id]/value`) — a separate small card
+      next to Management Fee, not folded into the general Property
+      add/edit form, matching how Management Fee already gets its own
+      card/endpoint rather than living on the general Property PATCH.
+      Report: Property + date-range filters (defaults to Jan 1 of the
+      current year through today, i.e. YTD, since Cap Rate is inherently
+      an annual metric — Income Statement's month-to-date default
+      wouldn't make sense here). Per property: Income, Expense, NOI for
+      the selected range, **Annualized NOI** (`NOI × 365 ÷ daysInRange`,
+      so a partial-year selection still produces a meaningful run-rate
+      figure — the page explains this scaling in a note and recommends a
+      full calendar year for the most accurate number), Property Value,
+      and Cap Rate (`Annualized NOI ÷ Property Value`, blank when no
+      value is on file rather than a divide-by-zero or misleading 0%).
+      Portfolio summary cards include a **Blended Cap Rate** that only
+      sums NOI and value across properties that actually have a value
+      set, so an unpriced property can't silently drag the blended
+      figure toward zero. Set a demo `propertyValue` of $950,000 on the
+      seeded Maple Ridge property (same convention as the already-set
+      10% management fee) so the report has something to show out of
+      the box. **Verification caught a real bug, not just confirmed
+      correctness**: after adding the schema field and running `prisma
+      migrate dev`, the dev server (already running) kept throwing
+      `Unknown field 'propertyValue'` — `prisma generate` doesn't
+      hot-reload into an already-running `next dev` process reliably
+      even though the generated client files on disk were correct;
+      requests intermittently alternated between a stale and fresh
+      in-memory client. Fixed by killing the dev server process and
+      restarting it fresh. Take away for future schema changes made
+      while a dev server is already running: **restart the dev server
+      after `prisma migrate dev`/`prisma generate`, don't assume hot
+      reload picked it up** — a 200 on one request and a 500 on the next
+      identical request is the signature of this happening again.
+      Verified the actual numbers, not just that the page loads: wrote a
+      one-off script (deleted after use) that independently recomputed
+      Income/Expense/NOI/Annualized-NOI/Cap-Rate straight from
+      `TransactionLine` rows and compared against the rendered page's
+      figures — both landed on Income $3,752.98, Expense $575.00, NOI
+      $3,177.98, Annualized NOI $5,918.18, Cap Rate 0.62% for Maple Ridge
+      YTD. Also confirmed via `npm run build` that `/admin/reports/noi`
+      compiles with no type errors.
 - [ ] Trust account reconciliation report — the brief calls this out as
       "the report that keeps you out of trouble": proving trust bank
       balance == sum of outstanding `SecurityDeposit` liability. Only
@@ -566,7 +606,8 @@ date-related feature — it's bitten this app twice now.
 ## Test data currently in the DB
 
 Sample Property ("Maple Ridge Apartments (Renamed)", 10% management fee
-set) with Units 101/102, an Owner ("Riverside Capital LLC", 60% on Maple
+set, $950,000 property value set for the NOI & Cap Rate report) with
+Units 101/102, an Owner ("Riverside Capital LLC", 60% on Maple
 Ridge) and a "Self (default)" owner (100% on Maple Ridge — the two aren't
 reconciled to sum to 100%, harmless test-data overlap, not a validation
 gap worth adding yet), Tenants (including "Jane A. Doe"), two Leases with

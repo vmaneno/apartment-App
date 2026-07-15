@@ -67,6 +67,7 @@ model Property {
   city           String
   state          String
   zip            String
+  propertyValue  Float? // for Cap Rate reporting (NOI ÷ Property Value); optional, admin-entered
   active         Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
