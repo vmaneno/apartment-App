@@ -554,9 +554,34 @@ tracked in this file).
       property and is trivially its own sub-ledger. Building actual
       pooling would need `BankAccount` to drop that single-property
       constraint, which is a schema change beyond "build the report."
-- [ ] Work order aging/completion-time report — `WorkOrder` has the dates
-      needed (`createdAt`, `completedAt`) but no report surfaces
-      open-order age or average time-to-complete.
+- [x] Work order aging/completion-time report — `/admin/reports/work-
+      order-aging`. Property + Priority filters. Two tables, both driven
+      by the same filtered `WorkOrder` query: **Open Work Orders**
+      (`status !== 'Completed'`), sorted oldest-first, with an Age
+      (days) column colored against priority-specific SLA-ish
+      thresholds — Emergency amber past 1 day / red past 3; Routine
+      amber past 7 / red past 14 (cosmetic thresholds only, no workflow
+      behavior hangs off them) — and **Completed Work Orders**
+      (`status === 'Completed' && completedAt` set), sorted most-
+      recently-completed-first, with a Days to Complete column. Summary
+      cards: Open count, Avg Age of Open, Completed count (all-time, no
+      date-range filter — mirrors Occupancy's Turnover History being
+      full-history rather than range-bound), Avg Days to Complete
+      overall, and split Avg Days to Complete for Emergency vs. Routine
+      separately, since the design brief calls turnaround time out as
+      "a real KPI" and a blended average would hide whether Emergency
+      requests are actually getting prioritized. Verified against the
+      seeded dev DB via an independent script (deleted after use): 5
+      open work orders (ages 2/1/1/1/1 days) → expected avg 1.2, and the
+      rendered page's HTML does contain `"1.2"` at the right spot;
+      0 completed work orders in the current test data, so this also
+      exercised the "No completed work orders match" empty state rather
+      than just the happy path. `npm run build` includes
+      `/admin/reports/work-order-aging` with no type errors.
+
+This closes the last of the five report gaps found in the original
+design-brief audit (AR aging, occupancy/vacancy, NOI/Cap Rate, trust
+reconciliation, work order aging) — all five are now built.
 
 ## CSV bulk import (Units / Owners / Tenants)
 

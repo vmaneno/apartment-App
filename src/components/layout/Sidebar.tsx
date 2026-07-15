@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen, Percent, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, Building2, Home, Users, UserCircle, ClipboardList, ScrollText, Receipt, FileText, FileSpreadsheet, BookOpen, Wrench, Landmark, TrendingUp, Scale, Hammer, Settings, LogOut, FileBadge, PiggyBank, BarChart3, FolderOpen, Droplets, ClipboardCheck, UserPlus, AlertTriangle, DoorOpen, Percent, ShieldCheck, Timer } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
@@ -30,6 +30,7 @@ const navItems = [
   { label: 'Owner Statements', href: '/admin/reports/owner-statements', icon: <FileSpreadsheet size={16} /> },
   { label: '1099 Vendors', href: '/admin/reports/1099s', icon: <FileBadge size={16} /> },
   { label: 'Work Orders', href: '/admin/ops/work-orders', icon: <Hammer size={16} /> },
+  { label: 'Work Order Aging', href: '/admin/reports/work-order-aging', icon: <Timer size={16} /> },
   { label: 'Inspections', href: '/admin/ops/inspections', icon: <ClipboardCheck size={16} /> },
   { label: 'Documents', href: '/admin/documents', icon: <FolderOpen size={16} /> },
   { label: 'Organization', href: '/admin/setup/organization', icon: <Settings size={16} /> },
