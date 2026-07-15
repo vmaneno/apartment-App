@@ -416,11 +416,26 @@ session can pick up without re-reading the whole brief or plan.
 ## Known gaps — design brief §5 Reporting
 
 Found via an audit against the brief's Reporting module list (not previously
-tracked in this file). Four of the eight listed reports don't exist yet:
+tracked in this file).
 
-- [ ] AR aging / delinquency report — Rent Roll and the Lease detail page
-      show a lease's current balance, but there's no aging-bucket view
-      (30/60/90+ days past due) across the portfolio.
+- [x] AR aging / delinquency report — `/admin/reports/ar-aging`. Property
+      filter + "As of" date (defaults to today, same pattern as Balance
+      Sheet). For each lease, walks every `LeaseCharge` dated on or before
+      the as-of date, nets off `PaymentApplication`s whose `Payment.date`
+      is also on or before the as-of date, and buckets the remainder by
+      age in days: Current (0-30), 31-60, 61-90, 90+. Only leases with a
+      total outstanding balance are shown (any status, not just Active —
+      a moved-out tenant's unpaid balance still needs collecting). Summary
+      cards: delinquent-lease count + total AR per bucket. Verified two
+      ways: (1) `tsc --noEmit` clean, (2) wrote a one-off script running
+      the identical bucketing logic directly against the seeded dev DB
+      (deleted after use) to confirm the two real delinquent leases
+      (Unit 101 $1,794.00, Unit 102 $1,548.98, both correctly all in the
+      Current bucket since every unpaid charge is 0-13 days old) — trying
+      to eyeball this from curl'd HTML was unreliable since Next.js
+      duplicates the RSC payload in the raw SSR response, so don't trust
+      a raw-HTML grep for this app's report pages; query the DB directly
+      or read the rendered page in an actual browser instead.
 - [ ] Occupancy & vacancy report, days-to-lease — Rent Roll shows a
       point-in-time occupancy %, but nothing tracks vacancy duration per
       unit or days-to-lease as a KPI.
