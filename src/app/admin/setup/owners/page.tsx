@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
+import { CsvImportCard } from '@/components/ui/CsvImportCard'
 import { OwnerForm } from './OwnerForm'
 import { OwnerRowActions } from './OwnerRowActions'
 
@@ -21,6 +22,13 @@ export default async function OwnersPage() {
   return (
     <div>
       <PageHeader title="Owners" subtitle="Parties who hold equity in one or more properties" />
+      <CsvImportCard
+        entityLabel="Owners"
+        templateHeaders={['Name', 'Type', 'Email', 'Phone']}
+        templateExampleRow={['Riverside Capital LLC', 'LLC', 'contact@riversidecap.com', '555-010-1234']}
+        templateFilename="owners-template.csv"
+        uploadUrl="/api/setup/owners/bulk"
+      />
       <div className="mb-6"><OwnerForm /></div>
       <DataTable
         columns={[

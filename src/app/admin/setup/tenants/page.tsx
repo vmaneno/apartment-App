@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
+import { CsvImportCard } from '@/components/ui/CsvImportCard'
 import { TenantForm } from './TenantForm'
 import { TenantRowActions } from './TenantRowActions'
 import { TenantFilters } from './TenantFilters'
@@ -54,6 +55,13 @@ export default async function TenantsPage({ searchParams }: { searchParams: Sear
   return (
     <div>
       <PageHeader title="Tenants" subtitle="People who lease units across your properties" />
+      <CsvImportCard
+        entityLabel="Tenants"
+        templateHeaders={['Name', 'Email', 'Phone']}
+        templateExampleRow={['Jane A. Doe', 'jane.doe@example.com', '555-010-9876']}
+        templateFilename="tenants-template.csv"
+        uploadUrl="/api/setup/tenants/bulk"
+      />
       <div className="mb-6"><TenantForm /></div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <TenantFilters name={name ?? ''} email={email ?? ''} />

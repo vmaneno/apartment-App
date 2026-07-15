@@ -455,6 +455,43 @@ tracked in this file).
       needed (`createdAt`, `completedAt`) but no report surfaces
       open-order age or average time-to-complete.
 
+## CSV bulk import (Units / Owners / Tenants)
+
+Not from the design brief — a direct user request. Reusable
+`CsvImportCard` (`src/components/ui/CsvImportCard.tsx`) sits above the
+existing single-record Add form on the Units, Owners, and Tenants
+setup pages, offering a "Download CSV Template" (client-side blob
+download, one header row + one example row) and an "Upload CSV" file
+picker. `src/lib/csv.ts` has a small dependency-free RFC4180-ish
+parser/generator (quoted-field and embedded-comma/quote handling
+verified via a round-trip script) — no `papaparse` or similar was
+already in `package.json`, and the flat header-row shape these
+templates use didn't justify adding one.
+
+Upload posts `{ rows: Record<string,string>[] }` (parsed client-side)
+to a new per-entity bulk route — `POST /api/setup/{units,owners,tenants}/bulk`
+— which loops rows server-side (never trusts client-side validation),
+creates what it can, and returns `{ created, errors: [{row, message}] }`
+so a partially-bad file still imports the good rows instead of
+all-or-nothing failing. Row numbers in errors account for the header
+row (`row: i + 2`) to match what a user sees in a spreadsheet.
+`Property Name` (Units template) is resolved to `propertyId` by
+case-insensitive exact match against the caller's org; an unmatched
+name is a per-row error, not a silent skip or auto-create. Units also
+surfaces the `[propertyId, unitNumber]` unique-constraint violation as
+a readable "already exists" message rather than a raw Prisma error.
+
+Verified via curl against the running dev server: valid rows created
+correctly for all three entities; a Tenants row with a blank Name
+correctly errored (row 4) while its siblings still imported; a Units
+row referencing a nonexistent property and a row colliding with an
+existing `[propertyId, unitNumber]` both errored with the *other* two
+rows still importing; confirmed all three pages render the template-
+download/upload controls (`grep` for "Download CSV Template"/"Upload
+CSV" in the SSR HTML). All test-created records were deleted after
+verification, matching this file's convention for other features'
+verification data.
+
 ## Known gotcha for future sessions
 
 `@prisma/adapter-pg` does **not** honor a `?schema=` query param on the

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { DataTable } from '@/components/ui/DataTable'
+import { CsvImportCard } from '@/components/ui/CsvImportCard'
 import { formatCurrency } from '@/lib/utils'
 import { AddUnitForm } from './AddUnitForm'
 import { UnitRowActions } from '../properties/[id]/UnitRowActions'
@@ -42,6 +43,13 @@ export default async function UnitsPage() {
   return (
     <div>
       <PageHeader title="Units" subtitle="Every unit across your properties" />
+      <CsvImportCard
+        entityLabel="Units"
+        templateHeaders={['Property Name', 'Unit Number', 'Beds', 'Baths', 'Sqft', 'Market Rent']}
+        templateExampleRow={['Maple Ridge Apartments', '101', 2, 1, 850, 1650]}
+        templateFilename="units-template.csv"
+        uploadUrl="/api/setup/units/bulk"
+      />
       <div className="mb-6"><AddUnitForm properties={properties} /></div>
       <DataTable
         columns={[
